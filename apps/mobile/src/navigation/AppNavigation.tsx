@@ -16,7 +16,7 @@ import { OrdersScreen, OrderScreen } from "../screens/Orders";
 import { CartScreen } from "../screens/Cart";
 import { RequestScreen } from "../screens/Request";
 import { ProfileScreen, AccountScreen, MedicineRequestsScreen, InformationScreen } from "../screens/Profile";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 const Stack = createNativeStackNavigator<RootStack>();
 const Tab = createBottomTabNavigator<Tabs>();
 const icons: Record<keyof Tabs, keyof typeof Ionicons.glyphMap> = {
@@ -38,8 +38,8 @@ function TabNavigator() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: "700", marginTop: 3 },
         tabBarLabelPosition: "below-icon",
         tabBarStyle: {
-          height: 68 + Math.max(insets.bottom, 8),
-          paddingTop: 8,
+          height: 60 + Math.max(insets.bottom, 8),
+          paddingTop: 4,
           paddingBottom: Math.max(insets.bottom, 8),
           backgroundColor: "#E3EEE8",
           borderTopColor: colors.border,
@@ -83,7 +83,7 @@ export function AppNavigation() {
       }}
     >
       {!user ? (
-        <AuthScreen />
+        <SafeAreaView edges={["top"]} style={{ flex: 1 }}><AuthScreen /></SafeAreaView>
       ) : (
         <Stack.Navigator
           screenOptions={({ navigation }) => ({

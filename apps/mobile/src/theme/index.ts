@@ -16,7 +16,7 @@ export const colors = {
 export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 };
 export const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.background },
-  content: { padding: space.lg, gap: space.lg, paddingBottom: 32, width: "100%", maxWidth: 600, alignSelf: "center" },
+  content: { paddingHorizontal: space.lg, paddingVertical: space.md, gap: space.md, paddingBottom: 32, width: "100%", maxWidth: 600, alignSelf: "center" },
   row: { flexDirection: "row", alignItems: "center", gap: space.md },
   between: {
     flexDirection: "row",
@@ -27,12 +27,13 @@ export const styles = StyleSheet.create({
   wrap: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
   grow: { flex: 1 },
   card: {
-    padding: space.lg,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
     backgroundColor: colors.white,
-    gap: space.md,
+    gap: space.sm,
   },
   hero: {
     backgroundColor: colors.primaryDark,

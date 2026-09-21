@@ -91,6 +91,7 @@ test("cart badge follows additions, isolated quantity updates, removal and check
   await services.cart.add("reddy-becozinc", 3);
   render(<SafeAreaProvider><AppProvider services={services}><AppNavigation /></AppProvider></SafeAreaProvider>);
   await screen.findByText("Good care starts close to home.");
+  expect(screen.getByText("Barkas - Near demo community centre")).toBeTruthy();
   expect(screen.getByTestId("cart-count")).toHaveTextContent("4");
   fireEvent.press(await screen.findByRole("button", { name: "View Digene Mint" }));
   expect(screen.queryByText("Prescription Required")).toBeNull();
@@ -116,7 +117,7 @@ test("cart badge follows additions, isolated quantity updates, removal and check
   fireEvent.press(screen.getByRole("button", { name: "Place order" }));
   await screen.findByText("Order received successfully. Our pharmacy team will call you shortly to confirm medicine availability.");
   expect(screen.queryByTestId("cart-count")).toBeNull();
-  expect(vibration).toHaveBeenCalledTimes(4);
+  expect(vibration).toHaveBeenCalledTimes(5);
   vibration.mockRestore();
 });
 

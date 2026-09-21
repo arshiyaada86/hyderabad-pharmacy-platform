@@ -19,7 +19,7 @@ export function HomeScreen() {
   const search = () => nav.navigate("Tabs", { screen: "Medicines", params: { query, category: "" } });
   return (
     <Screen>
-      <View style={{ backgroundColor: colors.primary, padding: 18, marginTop: -16, marginHorizontal: -16, gap: 14 }}>
+      <View style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 10, marginTop: -12, marginHorizontal: -16, gap: 8 }}>
         <View style={s.between}>
           <View style={s.grow}>
             <TypingGreeting />
@@ -29,7 +29,7 @@ export function HomeScreen() {
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel="Edit delivery location" onPress={() => nav.navigate("Account")} style={s.row}>
           <Ionicons name="location-outline" size={15} color={colors.white} />
-          <Text style={[s.small, s.white]}>{user?.locality}</Text>
+          <Text style={[s.small, s.white, { flex: 1 }]}>{[user?.locality?.trim(), user?.landmark?.trim()].filter(Boolean).join(" - ")}</Text>
           <Ionicons name="chevron-down" size={14} color={colors.white} />
         </Pressable>
         <View style={[s.row, { backgroundColor: colors.white, borderRadius: 8, paddingLeft: 12, gap: 4 }]}>

@@ -9,6 +9,8 @@ export function cartFeedback() {
   if (Platform.OS !== "web") Vibration.vibrate(35);
   else if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(35);
 }
+export const orderPlacedFeedback = cartFeedback;
+
 export function useReducedMotion() {
   const [reduced, setReduced] = useState(false);
   useEffect(() => {

@@ -36,7 +36,7 @@ import {
 
 } from "../components/ui";
 
-import { cartFeedback } from "../components/Success";
+import { cartFeedback, orderPlacedFeedback } from "../components/Success";
 
 import { PhotoPicker } from "../components/PhotoPicker";
 
@@ -344,6 +344,7 @@ export function CartScreen() {
                 );
 
                 retained.current = !!required;
+                orderPlacedFeedback();
 
                 await refresh();
 

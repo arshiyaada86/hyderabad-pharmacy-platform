@@ -13,7 +13,8 @@ export default function App() {
       <View style={{ flex: 1, backgroundColor: "#D5E0DB", alignItems: "center" }}>
       <SafeAreaView
         style={{ flex: 1, width: "100%", maxWidth: Platform.OS === "web" ? 480 : undefined, backgroundColor: colors.primaryDark }}
-        edges={["top", "left", "right"]}
+        // The native stack header owns the top inset; do not apply it twice.
+        edges={["left", "right"]}
       >
         <StatusBar style="light" />
         <AppProvider services={services}>
