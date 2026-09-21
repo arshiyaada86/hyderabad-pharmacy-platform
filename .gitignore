@@ -1,0 +1,15 @@
+node_modules/
+.expo/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.apk
+*.aab
+*.log
+apps/mobile/android/
+apps/mobile/ios/
+.DS_Store

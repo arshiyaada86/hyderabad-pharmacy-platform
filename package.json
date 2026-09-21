@@ -1,0 +1,13 @@
+{
+  "name": "hyderabad-pharmacy-platform",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "start": "npm run start -w apps/mobile",
+    "android": "npm run android -w apps/mobile",
+    "test": "npm run test -w apps/mobile",
+    "typecheck": "npm run typecheck -w apps/mobile"
+  }
+}

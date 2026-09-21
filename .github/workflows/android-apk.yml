@@ -1,0 +1,82 @@
+name: Build testing APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mobile/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testing-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Test and build standalone Android APK
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CI: '1'
+      DATA_MODE: mock
+      ANDROID_VERSION_CODE: ${{ github.run_number }}
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Set up Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install dependencies
+        run: npm ci
+      - name: Check types and run regression tests
+        run: |
+          npm run typecheck
+          npm test -- --silent
+      - name: Install Android SDK packages
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"'
+      - name: Generate Android project
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android --no-install
+      - name: Build standalone testing APK
+        working-directory: apps/mobile/android
+        # Expo's generated release variant uses its standard development signing key.
+        # Bundles JS/assets in the APK; this is for testers, not Play Store distribution.
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon --max-workers=2 -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64
+      - name: Prepare APK and checksum
+        run: |
+          mkdir -p apk
+          cp apps/mobile/android/app/build/outputs/apk/release/app-release.apk apk/Hyderabad-Pharmacy-testing.apk
+          cd apk
+          sha256sum Hyderabad-Pharmacy-testing.apk > SHA256SUMS.txt
+      - name: Upload APK
+        id: apk
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: Hyderabad-Pharmacy-testing-${{ github.run_number }}
+          path: apk/
+          if-no-files-found: error
+          retention-days: 30
+      - name: Download instructions
+        env:
+          ARTIFACT_URL: ${{ steps.apk.outputs.artifact-url }}
+        run: |
+          echo '### Hyderabad Pharmacy testing APK' >> "$GITHUB_STEP_SUMMARY"
+          echo "[Download APK artifact]($ARTIFACT_URL)" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Download and unzip the artifact, then share Hyderabad-Pharmacy-testing.apk with your testers. Expo Go and a development server are not required.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'This is a demo build with local data and mock OTP 123456. No live orders, payments or patient records. Signed with the standard development key; not a Play Store release.' >> "$GITHUB_STEP_SUMMARY"
