@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'apps/mobile/**'
+      - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/android-apk.yml'
@@ -44,6 +45,7 @@ jobs:
         run: npm ci
       - name: Check types and run regression tests
         run: |
+          node scripts/check-assets.cjs
           npm run typecheck
           npm test -- --silent
       - name: Install Android SDK packages

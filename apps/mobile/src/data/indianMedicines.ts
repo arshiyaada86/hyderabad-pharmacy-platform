@@ -266,7 +266,7 @@ export const indianMedicines: Medicine[] = [
     "manufacturer": "Abbott India Ltd",
     "manufacturerGroup": "Abbott",
     "composition": "LACTULOSE-3.335GM",
-    "image": "duphalac-solution-150ml.png",
+    "image": "duphalac-solution-150ml.jpg",
     "sourceUrl": "https://www.apollopharmacy.in/otc/duphalac-solution-150ml",
     "sourceCheckedAt": "2026-09-20",
     "prescriptionRequired": false,

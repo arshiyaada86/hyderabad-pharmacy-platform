@@ -14,7 +14,9 @@ export const productImages: Record<string, number> = {
   "digene-gel-mint-syrup-200ml.jpg": require("../../assets/products/digene-gel-mint-syrup-200ml.jpg"),
   "becozinc-capsule-30-s.jpg": require("../../assets/products/becozinc-capsule-30-s.jpg"),
   "ensure-vanila-powder-400g.jpg": require("../../assets/products/ensure-vanila-powder-400g.jpg"),
-  "duphalac-solution-150ml.png": require("../../assets/products/duphalac-solution-150ml.png"),
+  "duphalac-solution-150ml.jpg": require("../../assets/products/duphalac-solution-150ml.jpg"),
+  // Preserve photos in older saved order snapshots.
+  "duphalac-solution-150ml.png": require("../../assets/products/duphalac-solution-150ml.jpg"),
   "thyronorm-50mcg-tablet.jpg": require("../../assets/products/thyronorm-50mcg-tablet.jpg"),
   "ciplox-eye-ear-drops-10ml.jpg": require("../../assets/products/ciplox-eye-ear-drops-10ml.jpg"),
   "gluformin-500mg-tablet.jpg": require("../../assets/products/gluformin-500mg-tablet.jpg"),
