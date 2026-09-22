@@ -7,7 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react-native";
-import { TextInput } from "react-native";
+import { TextInput, Vibration } from "react-native";
 import { AppProvider } from "../src/services/Provider";
 import { Button, Quantity } from "../src/components/ui";
 import { ProfileForm } from "../src/components/ProfileForm";
@@ -85,6 +85,8 @@ test("photo picker supports preview, replacement and removal", async () => {
   expect(screen.queryByLabelText("Selected photo preview")).toBeNull();
 });
 test("request medicine has no text fields, requires one photo, persists and shows exact success text", async () => {
+  const vibration = jest.spyOn(Vibration, "vibrate").mockImplementation(() => {});
+  vibration.mockClear();
   const { services, media } = fixture();
   await login(services);
   const view = render(
@@ -103,6 +105,8 @@ test("request medicine has no text fields, requires one photo, persists and show
   await screen.findByText("Request received. We'll contact you soon.");
   expect(await services.request.list()).toHaveLength(2);
   expect(media.remove).not.toHaveBeenCalled();
+  expect(vibration).not.toHaveBeenCalled();
+  vibration.mockRestore();
 });
 
 test("failed cart quantity update preserves displayed quantities", async () => {

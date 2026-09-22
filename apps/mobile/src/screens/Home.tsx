@@ -7,7 +7,6 @@ import { colors, styles as s } from "../theme";
 import { Button, ErrorText, Screen, money, useAsync } from "../components/ui";
 import { MedicineArt, OrderCard } from "../components/cards";
 import { shopCategories } from "../data/shopCategories";
-import { TypingGreeting } from "../components/TypingGreeting";
 
 
 export function HomeScreen() {
@@ -22,7 +21,6 @@ export function HomeScreen() {
       <View style={{ backgroundColor: colors.primary, paddingHorizontal: 16, paddingVertical: 10, marginTop: -12, marginHorizontal: -16, gap: 8 }}>
         <View style={s.between}>
           <View style={s.grow}>
-            <TypingGreeting />
             <Text style={[s.heading, s.white]}>{user?.name}</Text>
           </View>
           <Ionicons name="leaf" size={30} color={colors.white} />
