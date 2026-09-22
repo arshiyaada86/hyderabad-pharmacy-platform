@@ -58,7 +58,7 @@ export function HomeScreen() {
       <View style={[s.row, { alignItems: "stretch", gap: 10 }]}>
         {medicines?.slice(0, 2).map(medicine => (
           <Pressable key={medicine.id} accessibilityRole="button" accessibilityLabel={`View ${medicine.brandName}`} onPress={() => nav.navigate("Medicine", { id: medicine.id })} style={[s.card, { flex: 1, padding: 12, gap: 6 }]}>
-            <View style={s.row}><MedicineArt image={medicine.image} name={medicine.brandName} /><Ionicons name="chevron-forward" size={18} color={colors.primary} /></View>
+            <View style={s.row}><MedicineArt image={medicine.image} name={medicine.brandName} /></View>
             <Text style={s.label}>{medicine.brandName}</Text>
             <Text style={s.small}>{medicine.strength}</Text>
             <View style={s.between}><ProductPrice price={medicine.price} mrp={medicine.mrp} /><Ionicons name="arrow-forward-circle" size={26} color={colors.primary} /></View>

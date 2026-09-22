@@ -58,7 +58,6 @@ export function MedicinesScreen() {
       ListHeaderComponent={
         <View style={s.section}>
           <Text style={s.title}>Your daily care</Text>
-          <Text style={s.text}>Cipla, Dr. Reddy’s & Abbott medicines and health essentials.</Text>
           <Field
             label="Search medicines"
             placeholder="Brand or generic name"

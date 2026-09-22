@@ -72,7 +72,7 @@ apps/mobile/
   tests/                     component, navigation and service regressions
 ```
 
-Future `apps/admin`, `apps/api`, `database`, `docs`, and `.github` can be added without moving the mobile app. They are intentionally not scaffolded now.
+Future `apps/admin`, `apps/api` and `database` can be added without moving the mobile app. They are not scaffolded yet. Dashboard requirements are in `docs/` and the automated APK workflow is in `.github/workflows/`.
 
 Screens read domain data through the provider. They do not import the seed catalog or mock implementations. Service calls are asynchronous even in mock mode. The mock implementations are grouped in one module to avoid unnecessary per-service boilerplate while retaining separate MedicineService, DoctorService, AuthService, CartService, OrderService, RequestService and MediaService contracts.
 
@@ -88,7 +88,7 @@ The design system follows the shared Hyderabad Pharmacy storyboard with teal act
 - Product names, packs, manufacturers, prescription labels and photos are sourced from Apollo Pharmacy listings, checked 20 September 2026. Each product links to its source; locally bundled photo provenance is in `apps/mobile/assets/products/product-sources.json`. Prices are illustrative and no live Hyderabad inventory is connected. Packaging can change.
 - Doctors' qualifications, hospital branches and published schedules are sourced from their official hospital profiles. Each profile links to its source and asks users to confirm timings. Initials replace fictional portraits. No live appointments, fabricated reviews, ratings or personal phone numbers are shown.
 
-Each medicine supports ID, brand, generic name, manufacturer, composition, strength, dosage form, package size, image reference, category, INR price, prescription requirement and active status. Orders keep snapshots so future catalog/profile edits do not alter order history. Reference data is exposed by the provider, rather than embedded in screens.
+Each medicine supports ID, brand, generic name, manufacturer, composition, strength, dosage form, package size, image reference, category, INR selling price and MRP, prescription requirement and active status. Orders keep snapshots so future catalog/profile edits do not alter order history. Reference data is exposed by the provider, rather than embedded in screens.
 
 ## Persistence
 
@@ -219,3 +219,9 @@ The native header owns the Android top safe-area inset once; login applies its o
 Customer pricing uses a shared MRP / selling price / calculated discount display across product cards, details, cart/checkout, and order history. Test catalog MRPs are illustrative values set 20% above the existing selling prices (not verified retail MRPs). Discounts are calculated from the two prices and rounded to two decimal places. Only discounted products show a crossed-out MRP and OFF percentage. New orders snapshot both prices; older orders without an MRP retain their original selling prices without an invented historical discount. Order Again uses current catalog prices. Customer prices use Indian rupee formatting and do not expose procurement, margin, or per-product tax information.
 
 Cart checkout requires an explicit delivery contribution selection: ₹0, ₹10 or ₹20, with no default. This is a flat amount per order, included once in the estimated and saved totals, and displayed separately in order details. Product quantity changes do not multiply it. Repeat orders restore products only and require a new choice. Historical orders without this field retain their original totals.
+
+## Dashboard handoff
+
+See [Customer app and dashboard requirements](docs/DASHBOARD_REQUIREMENTS.md) for the implemented feature inventory, dashboard modules, data ownership, backend/API migration, pricing/order rules and acceptance criteria. This is a requirements handoff; the dashboard and live backend are not implemented yet.
+
+After a successful order, the top-left Home action resets navigation to Home. Other order detail views keep normal back navigation. Featured product image chevrons and the manufacturer subtitle under Your daily care have been removed.

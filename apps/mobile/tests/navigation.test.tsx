@@ -81,6 +81,9 @@ test("medicine to cart flow, prescription gate and order confirmation", async ()
   expect(screen.getByText("Order Placed")).toBeTruthy();
   expect(screen.getAllByTestId("animated-success-icon").length).toBeGreaterThan(0);
   expect(screen.queryByText("Confirmation Pending")).toBeNull();
+  fireEvent.press(screen.getByRole("button", { name: "Go to Home" }));
+  await screen.findByText("Good care starts close to home.");
+  expect(screen.queryByText("Order Placed")).toBeNull();
 });
 
 test("cart badge follows additions, isolated quantity updates, removal and checkout", async () => {

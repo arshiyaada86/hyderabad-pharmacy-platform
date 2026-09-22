@@ -139,7 +139,18 @@ export function AppNavigation() {
           <Stack.Screen
             name="Order"
             component={OrderScreen}
-            options={{ title: "Your order" }}
+            options={({ route, navigation }) => ({
+              title: "Your order",
+              ...(route.params.placed ? {
+                headerBackVisible: false,
+                headerLeft: () => <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Go to Home"
+                  onPress={() => navigation.reset({ index: 0, routes: [{ name: "Tabs", params: { screen: "Home" } }] })}
+                  style={{ minHeight: 48, paddingRight: 12, flexDirection: "row", alignItems: "center", gap: 6 }}
+                ><Ionicons name="home-outline" size={22} color={colors.white} /><Text style={[s.label, s.white]}>Home</Text></Pressable>,
+              } : {}),
+            })}
           />
           <Stack.Screen name="MyOrders" component={OrdersScreen} options={{ title: "My orders" }} />
           <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Account information" }} />
