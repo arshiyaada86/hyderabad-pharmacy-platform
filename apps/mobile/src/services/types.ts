@@ -13,6 +13,7 @@ export type Medicine = {
   image: string;
   category: string;
   price: number;
+  mrp?: number;
   prescriptionRequired: boolean;
   active: boolean;
 };

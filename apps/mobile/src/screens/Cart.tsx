@@ -1,3 +1,4 @@
+import { ProductPrice } from "../components/ProductPrice";
 import React, { useRef, useState } from "react";
 
 import { Text, View } from "react-native";
@@ -214,7 +215,8 @@ export function CartScreen() {
 
               )}
 
-              <Text style={s.label}>{money(line.medicine.price)} per pack</Text>
+              <ProductPrice price={line.medicine.price} mrp={line.medicine.mrp} />
+              <Text style={s.small}>Per pack</Text>
 
               <View
 

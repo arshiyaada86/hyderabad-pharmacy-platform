@@ -202,7 +202,7 @@ export function Quantity({
     </View>
   );
 }
-export const money = (value: number) => `₹${value.toFixed(2)}`;
+export const money = (value: number) => `₹${value.toLocaleString("en-IN", { minimumFractionDigits: Number.isInteger(value) ? 0 : 2, maximumFractionDigits: 2 })}`;
 export const dateLabel = (value: string) =>
   new Date(value).toLocaleDateString("en-IN", {
     day: "numeric",

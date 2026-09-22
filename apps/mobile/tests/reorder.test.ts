@@ -8,7 +8,7 @@ test("Order Again uses available items, exact quantities and current prices with
   const db = JSON.parse((await storage.getItem("hp.demo.v1"))!);
   const past = db.orders.find((o: any) => o.customerId === "customer-1" && o.status === "Delivered");
   past.items = [
-    { medicine: { ...medicines[0], price: 12 }, quantity: 3 },
+    { medicine: { ...medicines[0], price: 12, mrp: 20 }, quantity: 3 },
     { medicine: { ...medicines[1], id: "retired", brandName: "Retired product" }, quantity: 2 },
   ];
   await storage.setItem("hp.demo.v1", JSON.stringify(db));
@@ -24,6 +24,8 @@ test("Order Again uses available items, exact quantities and current prices with
   expect(await services.order.list()).toEqual(beforeOrders);
   const placed = await services.order.place();
   expect(placed.total).toBe(medicines[0].price * 3 + medicines[1].price * 2);
+  expect(placed.items[0].medicine.mrp).toBe(medicines[0].mrp);
+  expect((await services.order.get(past.id)).items[0].medicine.mrp).toBe(20);
 });
 
 test("repeat ordering enforces account ownership and preserves cart on failed writes", async () => {

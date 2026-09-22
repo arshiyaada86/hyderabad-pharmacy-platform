@@ -1,3 +1,4 @@
+import { ProductPrice } from "../components/ProductPrice";
 import React, { useState } from "react";
 import { Image, Text, View } from "react-native";
 import { RouteProp, useRoute } from "@react-navigation/native";
@@ -136,9 +137,7 @@ export function OrderScreen() {
               <Text style={[s.small, s.grow]}>
                 {item.medicine.packageSize} × {item.quantity}
               </Text>
-              <Text style={s.label}>
-                {money(item.medicine.price * item.quantity)}
-              </Text>
+              <ProductPrice price={item.medicine.price} mrp={item.medicine.mrp} quantity={item.quantity} />
             </View>
           </View>
         ))}

@@ -1,3 +1,4 @@
+import { ProductPrice } from "../components/ProductPrice";
 import React, { useState } from "react";
 import { Image, Pressable, Text, TextInput, View } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
@@ -60,7 +61,7 @@ export function HomeScreen() {
             <View style={s.row}><MedicineArt image={medicine.image} name={medicine.brandName} /><Ionicons name="chevron-forward" size={18} color={colors.primary} /></View>
             <Text style={s.label}>{medicine.brandName}</Text>
             <Text style={s.small}>{medicine.strength}</Text>
-            <View style={s.between}><Text style={s.label}>{money(medicine.price)}</Text><Ionicons name="arrow-forward-circle" size={26} color={colors.primary} /></View>
+            <View style={s.between}><ProductPrice price={medicine.price} mrp={medicine.mrp} /><Ionicons name="arrow-forward-circle" size={26} color={colors.primary} /></View>
           </Pressable>
         ))}
       </View>

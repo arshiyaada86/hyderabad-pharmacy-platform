@@ -1,3 +1,4 @@
+import { ProductPrice } from "./ProductPrice";
 import React, { useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -67,7 +68,7 @@ export function MedicineCard({
           </Text>
           <Text style={s.small}>{medicine.packageSize}</Text>
           <Text style={s.small}>{medicine.manufacturer}</Text>
-          <Text style={[s.label, { color: colors.primaryDark }]}>{money(medicine.price)}</Text>
+          <ProductPrice price={medicine.price} mrp={medicine.mrp} />
         </View>
         <Ionicons name="chevron-forward" size={20} color={colors.muted} />
       </View>
@@ -135,9 +136,10 @@ export function OrderCard({
         </Text>
         <Badge text={order.status} warning={order.status === "Cancelled"} />
       </View>
-      <Text style={s.text}>
-        {order.items.map((i) => `${i.medicine.brandName} × ${i.quantity}`).join(", ")}
-      </Text>
+      {order.items.map(item => <View key={item.medicine.id} style={{ gap: 4 }}>
+        <Text style={s.text}>{item.medicine.brandName} × {item.quantity}</Text>
+        <ProductPrice price={item.medicine.price} mrp={item.medicine.mrp} quantity={item.quantity} />
+      </View>)}
       <View style={s.between}>
         <Text style={s.small}>
           {dateLabel(order.date)} ·{" "}

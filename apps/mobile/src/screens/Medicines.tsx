@@ -1,3 +1,4 @@
+import { ProductPrice } from "../components/ProductPrice";
 import React, { useEffect, useState } from "react";
 import { Linking, Text, View } from "react-native";
 import { RouteProp, useRoute } from "@react-navigation/native";
@@ -111,10 +112,8 @@ export function MedicineScreen() {
       <Text style={s.text}>
         {medicine.genericName} · {medicine.strength}
       </Text>
-      <Text style={s.heading}>
-        {money(medicine.price)}{" "}
-        <Text style={s.small}>/ {medicine.packageSize}</Text>
-      </Text>
+      <ProductPrice price={medicine.price} mrp={medicine.mrp} prominent />
+      <Text style={s.small}>{medicine.packageSize}</Text>
       {medicine.prescriptionRequired && (
         <Notice>
           A prescription is required. Add a clear photo before placing your
