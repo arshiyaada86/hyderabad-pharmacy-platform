@@ -7,7 +7,7 @@ import { useNav } from "../navigation/types";
 import { styles as s } from "../theme";
 import { Button, ErrorText, Notice, Screen, useAction } from "../components/ui";
 import { PhotoPicker } from "../components/PhotoPicker";
-import { SuccessNotice } from "../components/Success";
+import { requestSentFeedback, SuccessNotice } from "../components/Success";
 
 export function RequestScreen() {
   const { services, refresh } = useApp();
@@ -48,6 +48,7 @@ export function RequestScreen() {
                 if (!photo) return;
                 await services.request.submit(photo);
                 retained.current = true;
+                requestSentFeedback();
                 setDone(true);
                 await refresh();
               })

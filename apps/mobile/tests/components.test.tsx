@@ -105,7 +105,8 @@ test("request medicine has no text fields, requires one photo, persists and show
   await screen.findByText("Request received. We'll contact you soon.");
   expect(await services.request.list()).toHaveLength(2);
   expect(media.remove).not.toHaveBeenCalled();
-  expect(vibration).not.toHaveBeenCalled();
+  expect(vibration).toHaveBeenCalledTimes(1);
+  expect(vibration).toHaveBeenCalledWith(35);
   vibration.mockRestore();
 });
 
