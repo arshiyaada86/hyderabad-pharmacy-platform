@@ -22,7 +22,7 @@ test("Order Again uses available items, exact quantities and current prices with
   await services.order.again(past.id);
   expect((await services.cart.list())[0].quantity).toBe(3);
   expect(await services.order.list()).toEqual(beforeOrders);
-  const placed = await services.order.place();
+  const placed = await services.order.place(0);
   expect(placed.total).toBe(medicines[0].price * 3 + medicines[1].price * 2);
   expect(placed.items[0].medicine.mrp).toBe(medicines[0].mrp);
   expect((await services.order.get(past.id)).items[0].medicine.mrp).toBe(20);
@@ -56,7 +56,7 @@ test("repeat ordering cannot bypass prescriptions, including baby medicines", as
   product.category = "Baby medicines";
   try {
     await services.order.again(past.id);
-    await expect(services.order.place()).rejects.toThrow("prescription");
+    await expect(services.order.place(0)).rejects.toThrow("prescription");
   } finally { product.category = originalCategory; }
 });
 

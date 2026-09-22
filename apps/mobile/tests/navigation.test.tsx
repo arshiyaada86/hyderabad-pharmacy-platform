@@ -67,6 +67,7 @@ test("medicine to cart flow, prescription gate and order confirmation", async ()
   expect(screen.queryByText("Added to your cart.")).toBeNull();
   fireEvent.press(screen.getByRole("button", { name: "View cart" }));
   await screen.findByText("Add your prescription");
+  fireEvent.press(screen.getByRole("radio", { name: "Delivery contribution ₹0" }));
   expect(screen.getByRole("button", { name: "Place order" })).toBeDisabled();
   fireEvent.press(screen.getByRole("button", { name: "Upload photo" }));
   await screen.findByLabelText("Selected photo preview");
@@ -113,6 +114,7 @@ test("cart badge follows additions, isolated quantity updates, removal and check
   await waitFor(() => expect(screen.getByRole("button", { name: "Remove Becozinc" })).toBeEnabled());
   fireEvent.press(screen.getByRole("button", { name: "Remove Becozinc" }));
   await waitFor(() => expect(screen.queryByLabelText("Quantity of Becozinc: 3")).toBeNull());
+  fireEvent.press(screen.getByRole("radio", { name: "Delivery contribution ₹0" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "Place order" })).toBeEnabled());
   fireEvent.press(screen.getByRole("button", { name: "Place order" }));
   await screen.findByText("Order received successfully. Our pharmacy team will call you shortly to confirm medicine availability.");

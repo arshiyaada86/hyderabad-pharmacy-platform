@@ -76,6 +76,7 @@ export type Order = {
   date: string;
   items: { medicine: Medicine; quantity: number }[];
   total: number;
+  deliveryContribution?: 0 | 10 | 20;
   delivery: ProfileInput;
   status: OrderStatus;
   eta?: string;
@@ -124,7 +125,7 @@ export interface CartService {
 export interface OrderService {
   list(): Promise<Order[]>;
   get(id: string): Promise<Order>;
-  place(prescription?: Media): Promise<Order>;
+  place(deliveryContribution: 0 | 10 | 20, prescription?: Media): Promise<Order>;
   again(id: string): Promise<ReorderReview>;
 }
 export interface RequestService {

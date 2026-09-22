@@ -142,6 +142,10 @@ export function OrderScreen() {
           </View>
         ))}
         <View style={s.divider} />
+        {order.deliveryContribution !== undefined && <View style={s.between}>
+          <Text style={s.text}>Delivery contribution</Text>
+          <Text style={s.label}>{money(order.deliveryContribution)}</Text>
+        </View>}
         <View style={s.between}>
           <Text style={s.heading}>Total</Text>
           <Text style={s.heading}>{money(order.total)}</Text>

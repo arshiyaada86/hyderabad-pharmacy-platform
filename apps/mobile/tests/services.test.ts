@@ -126,12 +126,12 @@ describe("Cart and orders", () => {
     await login(services);
     await services.cart.add("abbott-digene-mint", 1);
     await services.cart.add("india-2", 1);
-    await expect(services.order.place()).rejects.toThrow("prescription");
-    await expect(services.order.place({ ...photo, size: 0 })).rejects.toThrow(
+    await expect(services.order.place(0)).rejects.toThrow("prescription");
+    await expect(services.order.place(0, { ...photo, size: 0 })).rejects.toThrow(
       "photo",
     );
     expect(await services.cart.list()).toHaveLength(2);
-    const order = await services.order.place(photo);
+    const order = await services.order.place(0, photo);
     expect(order.total).toBe(73);
     expect(order.prescriptionSubmitted).toBe(true);
     expect(order.status).toBe("Order Received");
@@ -143,8 +143,8 @@ describe("Cart and orders", () => {
     await login(services);
     await services.cart.add("abbott-digene-mint", 2);
     const results = await Promise.allSettled([
-      services.order.place(),
-      services.order.place(),
+      services.order.place(0),
+      services.order.place(0),
     ]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     const order = (await services.order.list()).find((o) =>
@@ -160,7 +160,7 @@ describe("Cart and orders", () => {
     const { services } = fixture();
     await login(services);
     await services.cart.add("abbott-digene-mint", 1);
-    const order = await services.order.place();
+    const order = await services.order.place(0);
     await services.cart.add("reddy-becozinc", 1);
     await services.auth.logout();
     await login(services, "9000000002");
@@ -178,7 +178,7 @@ describe("Cart and orders", () => {
     storage.setItem = jest.fn(async () => {
       throw new Error("Disk full");
     });
-    await expect(services.order.place()).rejects.toThrow("Disk full");
+    await expect(services.order.place(0)).rejects.toThrow("Disk full");
     storage.setItem = save;
     expect(await services.cart.list()).toHaveLength(1);
     expect(await services.order.list()).toHaveLength(3);
@@ -244,7 +244,7 @@ test("short order IDs are alphanumeric, collision safe and migrate existing orde
   expect((await services.order.get(orders[0].id)).total).toBe(orders[0].total);
   expect((await services.order.list())[0].id).toBe(orders[0].id);
   await services.cart.add("abbott-digene-mint", 1);
-  expect((await services.order.place()).id).toMatch(/^[A-Z0-9]{6}$/);
+  expect((await services.order.place(0)).id).toMatch(/^[A-Z0-9]{6}$/);
 });
 
 test("catalog includes real pack images, Rx and OTC products across all three manufacturers", async () => {

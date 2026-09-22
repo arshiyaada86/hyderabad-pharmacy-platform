@@ -139,7 +139,9 @@ test("checkout stays visually steady but disabled while a cart quantity saves", 
   const { CartScreen } = require("../src/screens/Cart");
   render(<AppProvider services={services}><CartScreen /></AppProvider>);
   const checkout = await screen.findByRole("button", { name: "Place order" });
-  const before = checkout.props.style;
+  expect(checkout).toBeDisabled();
+  fireEvent.press(screen.getByRole("radio", { name: "Delivery contribution ₹0" }));
+  const before = screen.getByRole("button", { name: "Place order" }).props.style;
   fireEvent.press(screen.getByRole("button", { name: "Increase quantity of Digene Mint" }));
   expect(screen.getByRole("button", { name: "Place order" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Place order" }).props.style).toEqual(before);

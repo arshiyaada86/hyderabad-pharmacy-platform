@@ -1,7 +1,7 @@
 import { ProductPrice } from "../components/ProductPrice";
 import React, { useRef, useState } from "react";
 
-import { Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 import { useApp } from "../services/Provider";
 
@@ -9,7 +9,7 @@ import { Media } from "../services/types";
 
 import { useNav } from "../navigation/types";
 
-import { styles as s } from "../theme";
+import { colors, styles as s } from "../theme";
 
 import {
 
@@ -60,6 +60,7 @@ export function CartScreen() {
   const retained = useRef(false);
 
   const [picking, setPicking] = useState(false);
+  const [deliveryContribution, setDeliveryContribution] = useState<0 | 10 | 20>();
 
   const {
 
@@ -179,7 +180,7 @@ export function CartScreen() {
 
                     0,
 
-                  ),
+                  ) + (deliveryContribution ?? 0),
 
                 )}
 
@@ -187,13 +188,22 @@ export function CartScreen() {
 
             </View>
 
-            <Text style={s.small}>
-
-              No online payment. Final availability and any delivery charges
-
-              would be confirmed by phone.
-
-            </Text>
+            <Text style={s.label}>Delivery contribution</Text>
+            <Text style={s.small}>Choose an amount for your delivery person. Added once per order.</Text>
+            <View accessibilityRole="radiogroup" accessibilityLabel="Delivery contribution" style={s.row}>
+              {([0, 10, 20] as const).map(amount => <Pressable
+                key={amount}
+                accessibilityRole="radio"
+                accessibilityLabel={`Delivery contribution ${money(amount)}`}
+                accessibilityState={{ checked: deliveryContribution === amount, disabled: action.busy }}
+                disabled={action.busy}
+                onPress={() => setDeliveryContribution(amount)}
+                style={{ flex: 1, minHeight: 48, alignItems: "center", justifyContent: "center", borderRadius: 12, borderWidth: 1, borderColor: colors.primary, backgroundColor: deliveryContribution === amount ? colors.primary : colors.white }}
+              ><Text style={[s.label, { color: deliveryContribution === amount ? colors.white : colors.primary }]}>{money(amount)}</Text></Pressable>)}
+            </View>
+            {deliveryContribution === undefined && <Text style={s.small}>Select ₹0, ₹10 or ₹20 to continue.</Text>}
+            {deliveryContribution !== undefined && <Text style={s.small}>Includes {money(deliveryContribution)} delivery contribution.</Text>}
+            <Text style={s.small}>No online payment. Final medicine availability will be confirmed by phone.</Text>
 
           </View>
 
@@ -331,16 +341,17 @@ export function CartScreen() {
           <Button
 
             title={action.busy ? "Submitting…" : "Place order"}
-            dimDisabled={action.busy || picking || (!!required && !prescription)}
+            dimDisabled={deliveryContribution === undefined || action.busy || picking || (!!required && !prescription)}
 
-            disabled={action.busy || cartAction.busy || picking || (!!required && !prescription)}
+            disabled={deliveryContribution === undefined || action.busy || cartAction.busy || picking || (!!required && !prescription)}
 
             onPress={() =>
 
               action.run(async () => {
 
+                if (deliveryContribution === undefined) return;
                 const order = await services.order.place(
-
+                  deliveryContribution,
                   required ? prescription : undefined,
 
                 );

@@ -383,7 +383,8 @@ export function createMockServices(
         if (!order) throw new Error("Order not found.");
         return order;
       },
-      place: async (prescription) => {
+      place: async (deliveryContribution, prescription) => {
+        if (![0, 10, 20].includes(deliveryContribution)) throw new Error("Select a delivery contribution of ₹0, ₹10 or ₹20.");
         const user = await requireUser();
         return transact(async (db) => {
           const cart = db.carts[user.id] ?? [];
@@ -408,9 +409,10 @@ export function createMockServices(
             customerId: user.id,
             date,
             items,
-            total: items.reduce(
+            deliveryContribution,
+            total: items.reduce<number>(
               (sum, i) => sum + i.medicine.price * i.quantity,
-              0,
+              deliveryContribution,
             ),
             delivery: validateProfile(user),
             status: "Order Received",
