@@ -55,6 +55,12 @@ For a connected APK, deploy a stable HTTPS API and configure EXPO_PUBLIC_DATA_MO
 
 Orders/requests originate from customers, not generic staff editors. Reorder uses current available products and prices, preserves unrelated cart lines and requires a fresh contribution choice. Layout, navigation, haptics and the fixed 0/10/20 rule remain application behavior rather than remotely editable code.
 
+## Dashboard navigation
+
+Click a table row (or focus it and press Enter/Space) to open its centered details dialog. Edit details and product stock adjustment are available inside the dialog; tables have no separate Actions/View column. Customer dialogs automatically load account details, order history and medicine requests.
+
+Products contains tabs for Products, Inventory ledger, Categories and Manufacturers. Doctors contains Doctors, Clinics and Specialties. Search fields have a right-side clear control when populated; searchable form selections also expose their clear control.
+
 ## Contract and permissions
 
 Routes below have `/api` prefix. Staff/customer bearer sessions are separate, hashed in SQLite and expire after eight hours. Dashboard sessions use sessionStorage; native customer sessions use SecureStore. Server authorization applies independently of UI visibility.
