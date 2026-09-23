@@ -10,7 +10,7 @@ import { PhotoPicker } from "../components/PhotoPicker";
 import { requestSentFeedback, SuccessNotice } from "../components/Success";
 
 export function RequestScreen() {
-  const { services, refresh } = useApp();
+  const { services, refresh, configuration } = useApp();
   const nav = useNav();
   const [photo, setPhoto] = useState<Media>();
   const retained = useRef(false);
@@ -25,7 +25,7 @@ export function RequestScreen() {
       </Text>
       {done ? (
         <>
-          <SuccessNotice large message={REQUEST_SUCCESS} />
+          <SuccessNotice large message={configuration?.requestSuccess ?? REQUEST_SUCCESS} />
           <Button
             title="Back to Home"
             onPress={() => nav.navigate("Tabs", { screen: "Home" })}
@@ -57,7 +57,7 @@ export function RequestScreen() {
         </>
       )}
       <ErrorText error={action.error} />
-      <Text style={s.small}>Demo mode · Requests stay on this device.</Text>
+      <Text style={s.small}>{configuration ? configuration.demoMode ? "Testing mode · Request sent to the testing pharmacy workspace." : "Your request is sent securely to the pharmacy." : "Demo mode · Requests stay on this device."}</Text>
     </Screen>
   );
 }

@@ -29,6 +29,6 @@ const config: ExpoConfig = {
     ],
     "expo-secure-store",
   ],
-  extra: { dataMode: process.env.DATA_MODE ?? "mock" },
+  extra: { dataMode: process.env.DATA_MODE ?? "mock", apiUrl: process.env.EXPO_PUBLIC_API_URL },
 };
 export default config;

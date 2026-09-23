@@ -25,7 +25,7 @@ import { OrderAgainButton } from "../components/OrderAgainButton";
 import { SuccessNotice } from "../components/Success";
 
 export function OrdersScreen() {
-  const { services, revision } = useApp();
+  const { services, revision, configuration } = useApp();
   const nav = useNav();
   const [past, setPast] = useState("");
   const { data, loading, error } = useAsync(
@@ -66,7 +66,7 @@ export function OrdersScreen() {
   );
 }
 export function OrderScreen() {
-  const { services, revision } = useApp();
+  const { services, revision, configuration } = useApp();
   const route = useRoute<RouteProp<RootStack, "Order">>();
   const nav = useNav();
   const {
@@ -77,7 +77,7 @@ export function OrderScreen() {
     () => services.order.get(route.params.id),
     [services, revision, route.params.id],
   );
-  if (loading) return <Loading />;
+  if (loading && !order) return <Loading />;
   if (!order)
     return (
       <Screen>
@@ -90,7 +90,7 @@ export function OrderScreen() {
       : ORDER_STEPS;
   return (
     <Screen>
-      {route.params.placed && <SuccessNotice large title="Order Placed" message={ORDER_SUCCESS} />}
+      {route.params.placed && <SuccessNotice large title="Order Placed" message={configuration?.orderSuccess ?? ORDER_SUCCESS} />}
       <Badge text={order.status} />
       <Text style={s.title}>Order details</Text>
       <Text selectable style={s.label}>
@@ -178,8 +178,7 @@ export function OrderScreen() {
         onPress={() => nav.navigate("Tabs", { screen: "Orders" })}
       />
       <Text style={s.small}>
-        Demo order updates are stored locally. Newly placed orders remain at
-        Order Received.
+        {configuration ? "Order progress is updated by your pharmacy team." : "Demo order updates are stored locally. Newly placed orders remain at Order Received."}
       </Text>
     </Screen>
   );

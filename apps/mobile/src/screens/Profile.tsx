@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, Text, View } from "react-native";
+import { Linking, Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { RouteProp, useRoute } from "@react-navigation/native";
 import { useApp } from "../services/Provider";
@@ -16,7 +16,7 @@ function MenuItem({ title, detail, icon, onPress }: { title: string; detail: str
   </Pressable>;
 }
 export function ProfileScreen() {
-  const { user, services, refresh } = useApp();
+  const { user, services, refresh, configuration } = useApp();
   const nav = useNav();
   const action = useAction();
   return <Screen>
@@ -32,14 +32,14 @@ export function ProfileScreen() {
     <Text style={s.heading}>Help & information</Text>
     <MenuItem title="Help & support" detail="Ordering, prescriptions & common questions" icon="help-circle-outline" onPress={() => nav.navigate("Information", { page: "help" })} />
     <MenuItem title="Terms & conditions" detail="Using this app" icon="document-text-outline" onPress={() => nav.navigate("Information", { page: "terms" })} />
-    <MenuItem title="Privacy information" detail="How this prototype stores your data" icon="shield-checkmark-outline" onPress={() => nav.navigate("Information", { page: "privacy" })} />
-    <MenuItem title="About Hyderabad Pharmacy" detail="App information" icon="information-circle-outline" onPress={() => nav.navigate("Information", { page: "about" })} />
+    <MenuItem title="Privacy information" detail="How your information is handled" icon="shield-checkmark-outline" onPress={() => nav.navigate("Information", { page: "privacy" })} />
+    <MenuItem title={`About ${configuration?.shopName ?? "Hyderabad Pharmacy"}`} detail="App information" icon="information-circle-outline" onPress={() => nav.navigate("Information", { page: "about" })} />
     <Button title="Logout" icon="log-out-outline" secondary disabled={action.busy} onPress={() => action.run(async () => { await services.auth.logout(); await refresh(); })} />
     <ErrorText error={action.error} />
   </Screen>;
 }
 export function AccountScreen() {
-  const { user, services, refresh } = useApp();
+  const { user, services, refresh, configuration } = useApp();
   const action = useAction();
   return <Screen>
     <Text style={s.title}>Account information</Text>
@@ -95,6 +95,12 @@ const information = {
 };
 export function InformationScreen() {
   const route = useRoute<RouteProp<RootStack, "Information">>();
-  const page = information[route.params.page];
-  return <Screen><Text style={s.title}>{page.title}</Text>{page.sections.map(([title, body]) => <View key={title} style={s.card}><Text style={s.heading}>{title}</Text><Text style={s.text}>{body}</Text></View>)}</Screen>;
+  const { configuration } = useApp();
+  const action = useAction();
+  const page = configuration?.pages[route.params.page] ?? information[route.params.page];
+  return <Screen><Text style={s.title}>{page.title}</Text>{page.sections.map(([title, body]) => <View key={title} style={s.card}><Text style={s.heading}>{title}</Text><Text style={s.text}>{body}</Text></View>)}{route.params.page === "help" && <>
+    {!!configuration?.supportPhone && <Button title="Call the pharmacy" secondary onPress={() => action.run(async () => { await Linking.openURL(`tel:${configuration.supportPhone}`); })} />}
+    {!!configuration?.supportEmail && <Button title="Email support" secondary onPress={() => action.run(async () => { await Linking.openURL(`mailto:${configuration.supportEmail}`); })} />}
+    <ErrorText error={action.error} />
+  </>}</Screen>;
 }

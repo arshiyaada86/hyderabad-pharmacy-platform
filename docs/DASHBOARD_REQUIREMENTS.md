@@ -4,9 +4,9 @@ Baseline: 22 September 2026. This document captures the implemented customer exp
 
 ## Scope and current state
 
-The customer app exists in `apps/mobile`. It uses Expo/React Native and supports Android APKs, Expo Go and a web preview. Its five tabs are Home, Medicines, Orders, Doctors and Profile. The current displayed name is **Hyderabad Pharmacy**; the requested business name **Old City Pharmacy** should be supported through branding settings. No rename is included in this change.
+The Expo customer app, Material UI dashboard, shared API and domain package are implemented in apps/mobile, apps/admin, apps/api and packages/domain. API mode uses SQLite-backed shared data; offline mock mode remains available for testing APKs. Dashboard branding is seeded as Old City Pharmacy. See [setup and coverage](PLATFORM_SETUP.md).
 
-There is currently **no dashboard, production API, database, real OTP delivery, live inventory, payment processing or delivery integration**. Accounts, carts, orders and requests are device-local demonstrations. API mode deliberately fails until implemented. Catalog prices and MRPs are sample values, not verified retail prices. Do not treat demo records as real customer orders.
+The supplied workspace uses sample prices, MRPs, stock, customers and orders. Hosting, real SMS, payments and courier integration are not provisioned. The inventory below preserves the customer baseline and acceptance requirements.
 
 Goal: the dashboard manages business data in a shared backend. The customer app reads that backend through authenticated services; it must not connect directly to the admin interface or require an APK release for routine content, inventory, price or order-status changes. Customers remain the source of their account details, carts, orders, chosen contributions and uploaded photos; the dashboard receives and manages those records with appropriate access controls.
 
@@ -15,7 +15,7 @@ Goal: the dashboard manages business data in a shared backend. The customer app 
 | Customer feature implemented | Dashboard responsibility and backend data |
 | --- | --- |
 | Home name and `locality - landmark`, without greeting or appended city | Customer profile and serviceable-locality records; trim empty values and omit stray separators |
-| Charminar artwork, banner, search, featured products, category tiles, doctor/request entry points | Published home content, image assets, allowed navigation targets, featured-product selection and sort order; currently featured products are the first two catalog items |
+| Charminar artwork, banner, search, featured products, category tiles, doctor/request entry points | Published home content, image assets, allowed navigation targets, featured-product selection and sort order; featured products are selected and ordered in the dashboard |
 | Product search and category/subcategory filters | Published catalog search, taxonomy and availability; category filters only, no brand or prescription filter tabs |
 | Product cards/details, pack photographs, prescription label | Full product records, verified prescription flag, asset/source provenance; only show Prescription Required when true |
 | MRP, selling price and automatic discount | Explicit MRP and selling price, price-change history and validation; public responses never include purchase cost, supplier cost or margin |
@@ -94,7 +94,7 @@ Recommended entities: Customer, Session/OTPChallenge, DeliveryLocality, Category
 
 The existing interfaces in `apps/mobile/src/services/types.ts` are the migration starting point. Current contracts include medicine list/get; doctor list/get; current user, OTP, register, update and logout; cart list/add/setQuantity; order list/get/place/again; request list/submit; media pick/validate/remove; reference categories/specialties/localities. `order.place` currently takes the selected contribution and optional prescription. Keep media picking local but add secure upload and server asset validation.
 
-Proposed API groups (not implemented endpoints):
+Original API grouping requirements (implemented route names are documented in PLATFORM_SETUP.md):
 
 | Group | Customer API | Authorized dashboard API |
 | --- | --- | --- |

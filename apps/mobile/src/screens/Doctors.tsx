@@ -22,14 +22,14 @@ import { DoctorCard, DoctorAvatar } from "../components/cards";
 import { KeyboardList } from "../components/KeyboardLayout";
 
 export function DoctorsScreen() {
-  const { services } = useApp();
+  const { services, revision } = useApp();
   const nav = useNav();
   const [query, setQuery] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [locality, setLocality] = useState("");
   const { data, loading, error } = useAsync(
     () => services.doctor.list(query, specialty, locality),
-    [services, query, specialty, locality],
+    [services, query, specialty, locality, revision],
   );
   return (
     <KeyboardList
@@ -89,7 +89,7 @@ export function DoctorsScreen() {
   );
 }
 export function DoctorScreen() {
-  const { services } = useApp();
+  const { services, revision } = useApp();
   const route = useRoute<RouteProp<RootStack, "Doctor">>();
   const action = useAction();
   const {
@@ -98,9 +98,9 @@ export function DoctorScreen() {
     loading,
   } = useAsync(
     () => services.doctor.get(route.params.id),
-    [services, route.params.id],
+    [services, route.params.id, revision],
   );
-  if (loading) return <Loading />;
+  if (loading && !doctor) return <Loading />;
   if (!doctor)
     return (
       <Screen>
@@ -139,7 +139,7 @@ export function DoctorScreen() {
       <Button title="View hospital profile" icon="open-outline" onPress={() => action.run(async () => { await Linking.openURL(doctor.sourceUrl); })} />
       <ErrorText error={action.error} />
       <Text style={s.small}>
-        Source: Yashoda Hospitals · Checked 20 September 2026. Contact and appointment options are available on the hospital profile. This directory does not show live appointments.
+        Source: published hospital profile · Checked {doctor.sourceCheckedAt}. Confirm timings before visiting. This directory does not show live appointments.
       </Text>
     </Screen>
   );

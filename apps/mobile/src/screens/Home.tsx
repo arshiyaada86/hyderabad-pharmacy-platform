@@ -11,11 +11,14 @@ import { shopCategories } from "../data/shopCategories";
 
 
 export function HomeScreen() {
-  const { user, services, revision } = useApp();
+  const { user, services, revision, configuration } = useApp();
   const nav = useNav();
   const [query, setQuery] = useState("");
   const { data: orders, error } = useAsync(() => services.order.list(), [services, revision]);
-  const { data: medicines, error: medicineError } = useAsync(() => services.medicine.list(), [services]);
+  const { data: medicines, error: medicineError } = useAsync(() => services.medicine.list(), [services, revision]);
+  const categories = configuration?.categories ?? shopCategories;
+  const featured = configuration ? configuration.featuredIds.map(id => medicines?.find(m => m.id === id)).filter((m): m is NonNullable<typeof m> => !!m) : medicines?.slice(0, 2);
+  const bannerAction = () => configuration?.bannerTarget === "Request" ? nav.navigate("Request") : nav.navigate("Tabs", { screen: configuration?.bannerTarget === "Doctors" ? "Doctors" : "Medicines" });
   const search = () => nav.navigate("Tabs", { screen: "Medicines", params: { query, category: "" } });
   return (
     <Screen>
@@ -39,9 +42,9 @@ export function HomeScreen() {
       </View>
       <View style={[s.row, { alignItems: "stretch", gap: 10 }]}>
         <View style={{ flex: 1.4, backgroundColor: "#B6D9CD", borderRadius: 18, overflow: "hidden", padding: 14, minHeight: 150 }}>
-          <Image source={require("../../assets/charminar-cutout.png")} style={{ position: "absolute", right: -8, bottom: 0, width: "53%", height: 105, borderTopLeftRadius: 18 }} resizeMode="contain" />
-          <Text style={[s.heading, { color: colors.primaryDark, maxWidth: "90%", fontSize: 16, lineHeight: 21 }]}>Your neighbourhood pharmacy</Text>
-          <Pressable accessibilityRole="button" onPress={() => nav.navigate("Tabs", { screen: "Medicines" })} style={{ marginTop: 12, backgroundColor: colors.primary, borderRadius: 6, padding: 10, alignSelf: "flex-start" }}><Text style={[s.label, s.white]}>Order now</Text></Pressable>
+          <Image source={configuration?.bannerImage ? { uri: configuration.bannerImage } : require("../../assets/charminar-cutout.png")} style={{ position: "absolute", right: -8, bottom: 0, width: "53%", height: 105, borderTopLeftRadius: 18 }} resizeMode="contain" />
+          <Text style={[s.heading, { color: colors.primaryDark, maxWidth: "90%", fontSize: 16, lineHeight: 21 }]}>{configuration?.bannerTitle ?? "Your neighbourhood pharmacy"}</Text>
+          <Pressable accessibilityRole="button" onPress={bannerAction} style={{ marginTop: 12, backgroundColor: colors.primary, borderRadius: 6, padding: 10, alignSelf: "flex-start" }}><Text style={[s.label, s.white]}>{configuration?.bannerButton ?? "Order now"}</Text></Pressable>
         </View>
         <Pressable accessibilityRole="button" accessibilityLabel="Request Medicine" onPress={() => nav.navigate("Request")} style={{ flex: 1, borderRadius: 18, backgroundColor: colors.primaryDark, padding: 14, justifyContent: "center", gap: 10 }}>
           <Ionicons name="camera-outline" size={32} color={colors.white} />
@@ -56,7 +59,7 @@ export function HomeScreen() {
       </View>
       <ErrorText error={medicineError} />
       <View style={[s.row, { alignItems: "stretch", gap: 10 }]}>
-        {medicines?.slice(0, 2).map(medicine => (
+        {featured?.map(medicine => (
           <Pressable key={medicine.id} accessibilityRole="button" accessibilityLabel={`View ${medicine.brandName}`} onPress={() => nav.navigate("Medicine", { id: medicine.id })} style={[s.card, { flex: 1, padding: 12, gap: 6 }]}>
             <View style={s.row}><MedicineArt image={medicine.image} name={medicine.brandName} /></View>
             <Text style={s.label}>{medicine.brandName}</Text>
@@ -67,9 +70,9 @@ export function HomeScreen() {
       </View>
       <Text style={s.heading}>Shop by category</Text>
       <View style={[s.wrap, { justifyContent: "space-between" }]}>
-        {shopCategories.map((category, index) => (
+        {categories.map((category, index) => (
           <Pressable key={category.name} accessibilityRole="button" accessibilityLabel={`Shop ${category.name}`} onPress={() => nav.navigate("Tabs", { screen: "Medicines", params: { category: category.name, query: "" } })} style={{ width: "30%", alignItems: "center", gap: 6, marginBottom: 8, paddingVertical: 8 }}>
-            <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: index % 2 ? colors.blue : colors.mint, alignItems: "center", justifyContent: "center" }}><MaterialCommunityIcons name={category.icon} size={25} color={colors.primary} /></View>
+            <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: index % 2 ? colors.blue : colors.mint, alignItems: "center", justifyContent: "center" }}><MaterialCommunityIcons name={category.icon as keyof typeof MaterialCommunityIcons.glyphMap} size={25} color={colors.primary} /></View>
             <Text style={[s.small, { textAlign: "center", color: colors.text }]}>{category.name}</Text>
           </Pressable>
         ))}
@@ -82,7 +85,7 @@ export function HomeScreen() {
       <ErrorText error={error} />
       {orders?.slice(0, 2).map(order => <OrderCard key={order.id} order={order} onPress={() => nav.navigate("Order", { id: order.id })} />)}
       {!orders?.length && <Text style={s.text}>Your first order will appear here.</Text>}
-      <Text style={s.small}>Real product and hospital listings. Prices and orders are illustrative; local stock is not connected.</Text>
+      {(!configuration || configuration.demoMode) && <Text style={s.small}>Testing catalog and orders. Prices are illustrative.</Text>}
     </Screen>
   );
 }

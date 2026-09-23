@@ -5,7 +5,7 @@ import { Pressable, Text, View } from "react-native";
 
 import { useApp } from "../services/Provider";
 
-import { Media } from "../services/types";
+import { Media, Medicine } from "../services/types";
 
 import { useNav } from "../navigation/types";
 
@@ -82,7 +82,10 @@ export function CartScreen() {
 
           ...line,
 
-          medicine: await services.medicine.get(line.medicineId),
+          medicine: await services.medicine.get(line.medicineId).catch((error) => {
+            if (![400, 404].includes(error.status)) throw error;
+            return { id: line.medicineId, brandName: "Unavailable product", genericName: "", manufacturer: "", composition: "", strength: "", dosageForm: "", packageSize: "", image: "", category: "", price: 0, prescriptionRequired: false, active: false, stock: 0 } as Medicine;
+          }),
 
         })),
 
@@ -92,6 +95,7 @@ export function CartScreen() {
 
   );
 
+  const unavailable = lines?.some(line => !line.medicine.active || (line.medicine.stock !== undefined && line.quantity > line.medicine.stock));
   const required = lines?.some((line) => line.medicine.prescriptionRequired);
 
   const updateQuantity = (id: string, quantity: number) => cartAction.run(async () => {
@@ -225,7 +229,8 @@ export function CartScreen() {
 
               )}
 
-              <ProductPrice price={line.medicine.price} mrp={line.medicine.mrp} />
+              {line.medicine.active ? <ProductPrice price={line.medicine.price} mrp={line.medicine.mrp} /> : <Text style={s.error}>This product is no longer available. Please remove it.</Text>}
+              {line.medicine.active && line.medicine.stock !== undefined && line.quantity > line.medicine.stock && <Text style={s.error}>Only {line.medicine.stock} packs available. Reduce the quantity or remove this item.</Text>}
               <Text style={s.small}>Per pack</Text>
 
               <View
@@ -341,9 +346,9 @@ export function CartScreen() {
           <Button
 
             title={action.busy ? "Submitting…" : "Place order"}
-            dimDisabled={deliveryContribution === undefined || action.busy || picking || (!!required && !prescription)}
+            dimDisabled={!!unavailable || !!error || deliveryContribution === undefined || action.busy || picking || (!!required && !prescription)}
 
-            disabled={deliveryContribution === undefined || action.busy || cartAction.busy || picking || (!!required && !prescription)}
+            disabled={!!unavailable || !!error || deliveryContribution === undefined || action.busy || cartAction.busy || picking || (!!required && !prescription)}
 
             onPress={() =>
 
@@ -353,8 +358,10 @@ export function CartScreen() {
                 const order = await services.order.place(
                   deliveryContribution,
                   required ? prescription : undefined,
-
-                );
+                ).catch(async (error) => {
+                  if (error.status === 409) await refresh();
+                  throw error;
+                });
 
                 retained.current = !!required;
                 orderPlacedFeedback();

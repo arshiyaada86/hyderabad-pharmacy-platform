@@ -26,7 +26,7 @@ import { cartFeedback } from "../components/Success";
 import { shopCategories } from "../data/shopCategories";
 
 export function MedicinesScreen() {
-  const { services } = useApp();
+  const { services, configuration, revision } = useApp();
   const nav = useNav();
   const route = useRoute<RouteProp<Tabs, "Medicines">>();
   const [query, setQuery] = useState(route.params?.query ?? "");
@@ -39,7 +39,7 @@ export function MedicinesScreen() {
   }, [route.params]);
   const { data, loading, error } = useAsync(
     () => services.medicine.list(query, subcategory || category),
-    [services, query, category, subcategory],
+    [services, query, category, subcategory, revision],
   );
   return (
     <KeyboardList
@@ -65,9 +65,9 @@ export function MedicinesScreen() {
             onChangeText={setQuery}
           />
           <Chips values={services.reference.categories} selected={category} onSelect={value => { setCategory(value); setSubcategory(""); }} all="All categories" />
-          {!!category && <Chips values={shopCategories.find(item => item.name === category)?.subcategories ?? []} selected={subcategory} onSelect={setSubcategory} all={`All ${category}`} />}
+          {!!category && <Chips values={(configuration?.categories ?? shopCategories).find(item => item.name === category)?.subcategories ?? []} selected={subcategory} onSelect={setSubcategory} all={`All ${category}`} />}
           <Text style={s.small}>
-            {data?.length ?? 0} products · illustrative prices · stock to be confirmed
+            {data?.length ?? 0} products {(!configuration || configuration.demoMode) ? "· illustrative prices · stock to be confirmed" : ""}
           </Text>
           <ErrorText error={error} />
         </View>
@@ -83,7 +83,7 @@ export function MedicinesScreen() {
   );
 }
 export function MedicineScreen() {
-  const { services, refresh, cartCount, cartLines } = useApp();
+  const { services, refresh, cartCount, cartLines, revision, configuration } = useApp();
   const route = useRoute<RouteProp<RootStack, "Medicine">>();
   const nav = useNav();
   const {
@@ -92,11 +92,11 @@ export function MedicineScreen() {
     error,
   } = useAsync(
     () => services.medicine.get(route.params.id),
-    [services, route.params.id],
+    [services, route.params.id, revision],
   );
   const quantity = cartLines.find(line => line.medicineId === route.params.id)?.quantity ?? 0;
   const action = useAction();
-  if (loading) return <Loading />;
+  if (loading && !medicine) return <Loading />;
   if (!medicine)
     return (
       <Screen>
@@ -143,8 +143,8 @@ export function MedicineScreen() {
         })} />
         <Text style={s.small}>Decrease to zero to remove this product.</Text>
       </View> : <Button
-        title={action.busy ? "Adding…" : "Add to cart"}
-        disabled={action.busy}
+        title={medicine.stock === 0 ? "Currently unavailable" : action.busy ? "Adding…" : "Add to cart"}
+        disabled={action.busy || medicine.stock === 0}
         icon="bag-add-outline"
         onPress={() => action.run(async () => {
           await services.cart.setQuantity(medicine.id, 1);
@@ -160,8 +160,7 @@ export function MedicineScreen() {
       <ErrorText error={action.error} />
       {medicine.sourceUrl && <Button title="Product information & photo source" secondary icon="open-outline" onPress={() => action.run(async () => { await Linking.openURL(medicine.sourceUrl!); })} />}
       <Text style={s.small}>
-        Demo prices; product listings do not confirm local stock. Your pharmacy team would confirm
-        availability before fulfilment.
+        {(!configuration || configuration.demoMode) ? "Testing prices. Availability will be confirmed by the pharmacy." : "Availability will be confirmed by the pharmacy before fulfilment."}
       </Text>
     </Screen>
   );

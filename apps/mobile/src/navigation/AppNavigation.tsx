@@ -7,7 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useApp } from "../services/Provider";
 import { RootStack, Tabs } from "./types";
 import { colors, styles as s } from "../theme";
-import { ErrorText, Loading, Screen } from "../components/ui";
+import { Button, ErrorText, Loading, Screen } from "../components/ui";
 import { AuthScreen } from "../screens/Auth";
 import { HomeScreen } from "../screens/Home";
 import { MedicinesScreen, MedicineScreen } from "../screens/Medicines";
@@ -60,12 +60,13 @@ function TabNavigator() {
   );
 }
 export function AppNavigation() {
-  const { loading, error, user, cartCount } = useApp();
+  const { loading, error, user, cartCount, configuration, refresh } = useApp();
   if (loading) return <Loading />;
   if (error)
     return (
       <Screen>
         <ErrorText error={error} />
+        <Button title="Retry connection" onPress={() => { void refresh().catch(() => undefined); }} />
       </Screen>
     );
   return (
@@ -119,7 +120,7 @@ export function AppNavigation() {
           <Stack.Screen
             name="Tabs"
             component={TabNavigator}
-            options={{ title: "Hyderabad Pharmacy" }}
+            options={{ title: configuration?.shopName ?? "Hyderabad Pharmacy" }}
           />
           <Stack.Screen
             name="Medicine"

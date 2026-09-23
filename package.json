@@ -2,12 +2,23 @@
   "name": "hyderabad-pharmacy-platform",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "scripts": {
     "start": "npm run start -w apps/mobile",
     "android": "npm run android -w apps/mobile",
-    "test": "npm run test -w apps/mobile",
-    "typecheck": "npm run typecheck -w apps/mobile"
+    "test": "npm run test -w apps/mobile && npm run test -w @pharmacy/api",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev": "node scripts/dev-platform.mjs",
+    "dev:api": "npm run dev -w @pharmacy/api",
+    "dev:admin": "npm run dev -w @pharmacy/admin",
+    "build:admin": "npm run build -w @pharmacy/admin"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "overrides": {
+    "@types/react": "19.2.18"
   }
 }

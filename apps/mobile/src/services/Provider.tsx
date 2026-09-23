@@ -1,8 +1,9 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { CartLine, Profile, ReorderReview, Services } from "./types";
+import React, { createContext, useContext, useEffect, useState, useRef } from "react";
+import { AppConfiguration, CartLine, Profile, ReorderReview, Services } from "./types";
 import { SuccessProvider } from "../components/Success";
 
 type Context = {
+  configuration?: AppConfiguration;
   services: Services;
   user: Profile | null;
   loading: boolean;
@@ -19,6 +20,8 @@ export function AppProvider({
   services,
   children,
 }: React.PropsWithChildren<{ services: Services }>) {
+  const [configuration, setConfiguration] = useState<AppConfiguration>();
+  const refreshing = useRef(false);
   const [user, setUser] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -27,8 +30,10 @@ export function AppProvider({
   const [cartCount, setCartCount] = useState(0);
   const [cartReview, setCartReview] = useState<ReorderReview>();
   const refresh = async () => {
+    if (services.configuration) setConfiguration(await services.configuration());
     const currentUser = await services.auth.current();
     const cart = currentUser ? await services.cart.list() : [];
+    setError("");
     setUser(currentUser);
     if (currentUser?.id !== user?.id) setCartReview(undefined);
     setCartLines(cart);
@@ -40,9 +45,16 @@ export function AppProvider({
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [services]);
+  useEffect(() => {
+    if (!services.configuration) return;
+    const timer = setInterval(() => {
+      if (!refreshing.current) { refreshing.current = true; void refresh().catch(() => undefined).finally(() => { refreshing.current = false; }); }
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [services, user?.id]);
   return (
     <ServiceContext.Provider
-      value={{ services, user, loading, error, revision, cartCount, cartLines, cartReview, setCartReview, refresh }}
+      value={{ configuration, services, user, loading, error, revision, cartCount, cartLines, cartReview, setCartReview, refresh }}
     >
       <SuccessProvider>{children}</SuccessProvider>
     </ServiceContext.Provider>

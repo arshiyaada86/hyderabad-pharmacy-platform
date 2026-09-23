@@ -14,7 +14,7 @@ import {
 import { ProfileForm } from "../components/ProfileForm";
 
 export function AuthScreen() {
-  const { services, refresh } = useApp();
+  const { services, refresh, configuration } = useApp();
   const [step, setStep] = useState<"phone" | "otp" | "register">("phone");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -24,11 +24,11 @@ export function AuthScreen() {
       {step === "phone" && (
         <View style={[s.between, { marginTop: 24, backgroundColor: colors.mint, borderRadius: 12, padding: 16 }]}>
           <View style={{ flex: 1, gap: 8 }}>
-            <Ionicons name="leaf" size={44} color={colors.primary} />
-            <Text style={[s.heading, { color: colors.primary }]}>Hyderabad{"\n"}Pharmacy</Text>
-            <Text style={s.small}>Your Health, Our Priority</Text>
+            {configuration?.logo ? <Image source={{uri: configuration.logo}} style={{width:44,height:44}} accessibilityLabel="Pharmacy logo" /> : <Ionicons name="leaf" size={44} color={colors.primary} />}
+            <Text style={[s.heading, { color: colors.primary }]}>{configuration?.shopName ?? "Hyderabad\nPharmacy"}</Text>
+            <Text style={s.small}>{configuration?.tagline ?? "Your Health, Our Priority"}</Text>
           </View>
-          <Image source={require("../../assets/charminar-cutout.png")} style={{ width: "48%", height: 180 }} resizeMode="contain" accessibilityLabel="Charminar, Hyderabad" />
+          <Image source={configuration?.bannerImage ? {uri: configuration.bannerImage} : require("../../assets/charminar-cutout.png")} style={{ width: "48%", height: 180 }} resizeMode="contain" accessibilityLabel="Charminar, Hyderabad" />
         </View>
       )}
       <Text style={s.title}>
@@ -42,13 +42,13 @@ export function AuthScreen() {
         {step === "phone"
           ? "Sign in or create an account with your mobile number."
           : step === "otp"
-            ? `Enter the demo code for +91 ${phone}.`
+            ? `Enter the ${services.reference.demoOtp ? "demo " : ""}code for +91 ${phone}.`
             : "Add your details for a smooth delivery."}
       </Text>
-      <Notice>
+      {services.reference.demoOtp && <Notice>
         Demo app · No SMS is sent. Use code {services.reference.demoOtp}. Please
         use fictional personal details and photos.
-      </Notice>
+      </Notice>}
       {step === "phone" && (
         <>
           <Field
@@ -67,10 +67,10 @@ export function AuthScreen() {
               run(async () => {
                 await services.auth.sendOtp(phone);
                 setStep("otp");
-              }, "Demo code ready. Use 123456.")
+              }, services.reference.demoOtp ? "Demo code ready. Use 123456." : "Verification code sent.")
             }
           />
-          <Button
+          {!!services.reference.demoPhone && <Button
             title="Try a demo account"
             secondary
             disabled={busy}
@@ -79,15 +79,15 @@ export function AuthScreen() {
                 setPhone(services.reference.demoPhone);
                 await services.auth.sendOtp(services.reference.demoPhone);
                 setStep("otp");
-              }, "Demo code ready. Use 123456.")
+              }, services.reference.demoOtp ? "Demo code ready. Use 123456." : "Verification code sent.")
             }
-          />
+          />}
         </>
       )}
       {step === "otp" && (
         <>
           <Field
-            label="6-digit demo code"
+            label={services.reference.demoOtp ? "6-digit demo code" : "6-digit verification code"}
             value={code}
             onChangeText={setCode}
             keyboardType="number-pad"
@@ -105,14 +105,14 @@ export function AuthScreen() {
             }
           />
           <Button
-            title="Resend demo code"
+            title={services.reference.demoOtp ? "Resend demo code" : "Resend code"}
             secondary
             disabled={busy}
             onPress={() =>
               run(async () => {
                 await services.auth.sendOtp(phone);
                 setCode("");
-              }, "Demo code reset. Use 123456.")
+              }, services.reference.demoOtp ? "Demo code reset. Use 123456." : "Verification code sent.")
             }
           />
           <Button

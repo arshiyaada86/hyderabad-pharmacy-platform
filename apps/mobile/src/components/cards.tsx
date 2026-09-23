@@ -8,6 +8,8 @@ import { Badge, dateLabel, money } from "./ui";
 import { productImages } from "../data/productImages";
 
 export function DoctorAvatar({ doctor, large = false }: { doctor: Doctor; large?: boolean }) {
+  const [photoFailed, setPhotoFailed] = useState(false);
+  if (doctor.photo && /^https?:\/\//.test(doctor.photo) && !photoFailed) return <Image source={{uri: doctor.photo}} accessibilityLabel={`${doctor.name} portrait`} onError={() => setPhotoFailed(true)} style={{width:large ? 96 : 56,height:large ? 96 : 56,borderRadius:large ? 48 : 28}} />;
   const initials = doctor.name.replace(/^Dr\.\s*/, "").split(/\s+/).filter(Boolean).map(part => part[0]).slice(0, 2).join("");
   return <View accessibilityLabel={`${doctor.name} initials`} style={[s.avatar, { backgroundColor: colors.mint, alignItems: "center", justifyContent: "center" }, large && { width: 96, height: 96, borderRadius: 48 }]}>
     <Text style={{ color: colors.primaryDark, fontWeight: "700", fontSize: large ? 32 : 22 }}>{initials}</Text>
@@ -23,7 +25,7 @@ export function MedicineArt({
   name?: string;
 }) {
   const [failedImage, setFailedImage] = useState<string>();
-  const source = image && (productImages[image] || (image.startsWith("https://") ? { uri: image } : undefined));
+  const source = image && (productImages[image] || (/^https?:\/\//.test(image) ? { uri: image } : undefined));
   return (
     <View style={[s.medicineIcon, { width: 90, height: 96, flexShrink: 1, backgroundColor: colors.white, padding: 6 }, large && { width: "100%", height: 220 }]}>
       {source && failedImage !== image ? (

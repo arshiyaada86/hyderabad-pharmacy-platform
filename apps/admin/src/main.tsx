@@ -1,0 +1,7 @@
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import App from './App';
+import './style.css';
+const theme=createTheme({palette:{primary:{main:'#096b59',dark:'#044f42',light:'#e7f3ee'},background:{default:'#f5f7f8',paper:'#fff'},text:{primary:'#182f35',secondary:'#6e7f84'},divider:'#e5eceb'},typography:{fontFamily:'"Segoe UI", Inter, Arial, sans-serif',h4:{fontWeight:750,letterSpacing:'-.8px'},h5:{fontWeight:700},h6:{fontWeight:700},button:{textTransform:'none',fontWeight:650},body2:{fontSize:13}},shape:{borderRadius:12},components:{MuiButton:{styleOverrides:{root:{boxShadow:'none',minHeight:40}}},MuiPaper:{styleOverrides:{root:{backgroundImage:'none'}}},MuiTableCell:{styleOverrides:{head:{background:'#f7f9f9',fontSize:11,fontWeight:750,textTransform:'uppercase',letterSpacing:'.7px',color:'#698087'},root:{borderBottom:'1px solid #edf1f1',padding:'15px 18px'}}},MuiTextField:{defaultProps:{size:'small'}},MuiChip:{styleOverrides:{root:{fontWeight:650,fontSize:11}}}}});
+createRoot(document.getElementById('root')!).render(<ThemeProvider theme={theme}><CssBaseline/><App/></ThemeProvider>);

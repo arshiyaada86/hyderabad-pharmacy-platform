@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'apps/mobile/**'
+      - 'packages/domain/**'
       - 'scripts/**'
       - 'package.json'
       - 'package-lock.json'
@@ -47,7 +48,7 @@ jobs:
         run: |
           node scripts/check-assets.cjs
           npm run typecheck
-          npm test -- --silent
+          npm test
       - name: Install Android SDK packages
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"'
       - name: Generate Android project
