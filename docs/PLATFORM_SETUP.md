@@ -59,7 +59,7 @@ Orders/requests originate from customers, not generic staff editors. Reorder use
 
 Click a table row (or focus it and press Enter/Space) to open its centered details dialog. Edit details and product stock adjustment are available inside the dialog; tables have no separate Actions/View column. Customer dialogs automatically load account details, order history and medicine requests.
 
-Products contains tabs for Products, Inventory ledger, Categories and Manufacturers. Doctors contains Doctors, Clinics and Specialties. Search fields have a right-side clear control when populated; searchable form selections also expose their clear control.
+Products is one filterable list: manufacturer, category/subcategory, stock availability and publication status combine with search. Each product dialog includes its manufacturer and category information, current stock and paginated stock history, with editing and stock adjustment available in context. Doctors contains Doctors, Clinics and Specialties. Search fields have a right-side clear control when populated; searchable form selections also expose their clear control.
 
 ## Contract and permissions
 

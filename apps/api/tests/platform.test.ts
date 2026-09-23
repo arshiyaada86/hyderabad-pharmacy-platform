@@ -95,3 +95,17 @@ test('SQLite state survives restart and failed transactions roll back',()=>{
  const dir=mkdtempSync(join(tmpdir(),'pharmacy-db-'));const file=join(dir,'test.sqlite');let db=new Store(file);
  try{db.put('localities',{id:'persist',name:'Test locality',active:true});assert.throws(()=>db.transaction(()=>{db.put('localities',{id:'rollback',name:'Invalid'});throw new Error('Rollback');}));assert.equal(db.get('localities','rollback'),undefined);db.close();db=new Store(file);assert.equal(db.get('localities','persist')!.name,'Test locality');}finally{db.close();rmSync(dir,{recursive:true,force:true});}
 });
+
+test('product filters combine before pagination and stock history is scoped to the product',async t=>{
+ const {store,call,admin}=await setup(t);
+ const expected=store.list('products').filter(p=>p.manufacturerGroup==='Cipla'&&p.category==='Antibiotics');
+ const filtered=await call('/admin/products?manufacturer=Cipla&category=Antibiotics&limit=1','GET',undefined,admin);
+ assert.equal(filtered.status,200);assert.equal(filtered.data.total,expected.length);assert.equal(filtered.data.items.length,1);
+ assert.equal(filtered.data.items[0].manufacturerGroup,'Cipla');assert.equal(filtered.data.items[0].category,'Antibiotics');
+ const low=await call('/admin/products?stock=low','GET',undefined,admin);assert.ok(low.data.items.every((p:any)=>p.stock<=10));
+ const p=store.list('products')[0],other=store.list('products')[1];
+ store.put('inventory',{productId:p.id,delta:3,balance:p.stock+3,reason:'Test stock'});
+ store.put('inventory',{productId:other.id,delta:1,balance:other.stock+1,reason:'Other stock'});
+ const history=await call('/admin/inventory?productId='+p.id,'GET',undefined,admin);
+ assert.equal(history.data.total,1);assert.equal(history.data.items[0].productId,p.id);
+});

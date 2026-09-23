@@ -84,6 +84,14 @@ export function createApp(store:Store,options:Options){
   permit(req,allowed);
   const search=String(req.query.search??'').toLowerCase();const status=String(req.query.status??'');
   let rows=store.list(c).map(r=>serialize(c,r));
+  if(c==='products'){
+   if(req.query.manufacturer)rows=rows.filter(r=>r.manufacturerGroup===req.query.manufacturer);
+   if(req.query.category){const category=store.list('categories').find(r=>r.name===req.query.category);rows=rows.filter(r=>category?category.subcategories.includes(r.category):r.category===req.query.category);}
+   if(req.query.stock==='low')rows=rows.filter(r=>r.stock<=10);
+   if(req.query.stock==='out')rows=rows.filter(r=>r.stock===0);
+   if(req.query.stock==='available')rows=rows.filter(r=>r.stock>0);
+  }
+  if(c==='inventory'&&req.query.productId)rows=rows.filter(r=>r.productId===req.query.productId);
   if(c==='orders'&&req.query.prescription==='true')rows=rows.filter(r=>r.prescriptionSubmitted);
   rows=rows.filter(r=>(!search||JSON.stringify(r).toLowerCase().includes(search))&&(!status||r.status===status||r.followUp===status));
   rows.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));

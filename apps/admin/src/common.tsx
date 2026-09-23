@@ -9,4 +9,4 @@ export const title=(key:string)=>modules.find(m=>m.key===key)?.title||extras[key
 export const fieldLabel=(key:string,module?:Module)=>module?.fields.find(f=>f.key===key)?.label.replace(' (₹)','')||({id:'Order ID',customerId:'Customer',totalPaise:'Total',createdAt:'Date',updatedAt:'Updated',productName:'Product',followUp:'Follow-up',assignedTo:'Assigned to',pricePaise:'Selling price',manufacturerGroup:'Manufacturer',review:'Prescription review'} as Record<string,string>)[key]||key.replace(/([A-Z])/g,' $1');
 export function Status({value}:{value:string}){const good=['published','Delivered','Approved','Closed','active'].includes(value);const bad=['Cancelled','Rejected','archived','inactive'].includes(value);return <Chip size="small" label={value} sx={{bgcolor:good?'#e6f4eb':bad?'#fdebe8':'#fff3dd',color:good?'#267b49':bad?'#b24538':'#9e6a12',borderRadius:1.5}}/>;}
 
-export const sectionFamilies = [['products','inventory','categories','manufacturers'],['doctors','clinics','specialties']];
+export const sectionFamilies = [['doctors','clinics','specialties']];
