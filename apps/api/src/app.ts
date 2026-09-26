@@ -140,6 +140,39 @@ export function createApp(store:Store,options:Options){
   res.status(old?200:201).json(serialize(c,saved));
  };
  app.post('/api/admin/:collection',saveRecord);app.put('/api/admin/:collection/:id',saveRecord);
+ // Save the complete product dialog atomically: related records and stock either all save or none do.
+ app.put('/api/admin/products/:id/details',(req,res)=>{
+  const staff=permit(req,['admin','catalog']);
+  const input=z.object({version:z.number(),reason:z.string().min(3),changes:z.array(z.object({collection:z.enum(['products','manufacturers','categories']),id:z.string(),version:z.number(),data:z.record(z.string(),z.unknown())}).strict()).max(10),stock:z.number().int().min(0).max(1000000).optional(),receipt:z.object({supplier:z.string().trim().min(1).max(200),quantity:z.number().int().min(1).max(100000),receivedDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),invoice:z.string().max(200)}).strict().optional()}).strict().parse(req.body);
+  const result=store.transaction(()=>{
+   const original=store.get('products',req.params.id as string)??fail(404,'Product not found.');version(original,input.version);
+   const keys=new Set<string>();
+   const changes=input.changes.map(change=>{
+    const key=change.collection+':'+change.id;if(keys.has(key))fail(400,'Duplicate record update.');keys.add(key);
+    if(change.collection==='products'&&change.id!==original.id)fail(400,'Only this product may be updated.');
+    const old=store.get(change.collection,change.id)??fail(404,'Related record not found.');version(old,change.version);
+    const module=modules.find(m=>m.key===change.collection)!;const data=schemaFor(module).parse(change.data);return {change,old,data};
+   });
+   // Taxonomy edits must validate before product edits that depend on them.
+   changes.sort((a,b)=>Number(a.change.collection==='products')-Number(b.change.collection==='products'));
+   for(const {change,old,data} of changes){validateBusiness(change.collection,data,old);const next=store.put(change.collection,{...old,...data});store.audit(staff.id,'update',change.collection,next.id,input.reason,old,next);}
+   let product=store.get('products',original.id)!;
+   if(input.stock!==undefined&&input.stock!==product.stock){const delta=input.stock-product.stock;const before=product;product=store.put('products',{...product,stock:input.stock});store.put('inventory',{productId:product.id,productName:product.brandName,delta,balance:product.stock,reason:input.reason,actor:staff.id});store.audit(staff.id,'stock adjustment','products',product.id,input.reason,before,product);}
+   if(input.receipt){
+    if(input.stock!==undefined)fail(400,'Record a receipt or a stock correction in one save, not both.');
+    const r=input.receipt;if(Number.isNaN(Date.parse(r.receivedDate))||new Date(r.receivedDate).toISOString().slice(0,10)!==r.receivedDate)fail(400,'Enter a valid receipt date.');
+    const receipt=store.put('purchases',{...r,productId:product.id,productName:product.brandName,actor:staff.id});
+    const before=product;product=store.put('products',{...product,stock:product.stock+r.quantity});
+    store.put('inventory',{productId:product.id,productName:product.brandName,delta:r.quantity,balance:product.stock,reason:'Stock receipt from '+r.supplier,receiptId:receipt.id,actor:staff.id});
+    store.audit(staff.id,'stock receipt','products',product.id,input.reason,before,product);
+   }
+   return product;
+  });res.json(result);
+ });
+ app.get('/api/admin/products/:id/purchases',(req,res)=>{
+  permit(req,['admin','catalog']);const rows=store.list('purchases').filter(r=>r.productId===req.params.id).sort((a,b)=>b.receivedDate.localeCompare(a.receivedDate)||b.createdAt.localeCompare(a.createdAt));
+  const page=Math.max(0,Number(req.query.page)||0);res.json({items:rows.slice(page*10,page*10+10),total:rows.length});
+ });
  app.post('/api/admin/products/:id/stock',(req,res)=>{
   const staff=permit(req,['admin','catalog']);const {delta,reason:why,version:expected}=z.object({delta:z.number().int().min(-100000).max(100000).refine(n=>n!==0),reason:z.string().min(3),version:z.number()}).strict().parse(req.body);
   const result=store.transaction(()=>{const p=store.get('products',req.params.id as string)??fail(404,'Product not found.');version(p,expected);if(p.stock+delta<0)fail(400,'Stock cannot be negative.');const next=store.put('products',{...p,stock:p.stock+delta});store.put('inventory',{productId:p.id,productName:p.brandName,delta,balance:next.stock,reason:why,actor:staff.id});store.audit(staff.id,'stock adjustment','products',p.id,why,p,next);return next;});res.json(result);

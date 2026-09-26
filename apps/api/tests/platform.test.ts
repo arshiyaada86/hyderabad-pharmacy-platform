@@ -109,3 +109,16 @@ test('product filters combine before pagination and stock history is scoped to t
  const history=await call('/admin/inventory?productId='+p.id,'GET',undefined,admin);
  assert.equal(history.data.total,1);assert.equal(history.data.items[0].productId,p.id);
 });
+
+test('unified product save is atomic, receipts increase stock once, and conflicts preserve other records',async t=>{
+ const {store,call,admin}=await setup(t);const p=store.list('products')[0],m=store.list('manufacturers').find(m=>m.name===p.manufacturerGroup)!;
+ const changes=[{collection:'products',id:p.id,version:p.version,data:{...editable('products',p),pricePaise:p.pricePaise-100}},{collection:'manufacturers',id:m.id,version:m.version,data:{...editable('manufacturers',m),website:'https://example.com'}}];
+ const body={version:p.version,reason:'Supplier delivery received',changes,receipt:{supplier:'Test distributor',quantity:5,receivedDate:'2026-09-23',invoice:'INV-TEST-1'}};
+ const bad=await call('/admin/products/'+p.id+'/details','PUT',{...body,receipt:{...body.receipt,receivedDate:'2026-02-31'}},admin);
+ assert.equal(bad.status,400);assert.equal(store.get('products',p.id)!.version,p.version);assert.equal(store.get('manufacturers',m.id)!.website,m.website);assert.equal(store.list('purchases').length,0);
+ const result=await call('/admin/products/'+p.id+'/details','PUT',body,admin);assert.equal(result.status,200);assert.equal(result.data.stock,p.stock+5);assert.equal((await call('/products/'+p.id)).data.price,(p.pricePaise-100)/100);
+ assert.equal(store.get('manufacturers',m.id)!.website,'https://example.com');
+ const history=(await call('/admin/products/'+p.id+'/purchases','GET',undefined,admin)).data;assert.equal(history.total,1);assert.equal(history.items[0].invoice,'INV-TEST-1');
+ assert.equal((await call('/admin/products/'+p.id+'/details','PUT',body,admin)).status,409);assert.equal(store.list('purchases').length,1);assert.equal(store.get('products',p.id)!.stock,p.stock+5);
+ assert.equal((await call('/admin/products/'+p.id+'/purchases')).status,401);
+});

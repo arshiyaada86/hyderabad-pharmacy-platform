@@ -57,9 +57,9 @@ Orders/requests originate from customers, not generic staff editors. Reorder use
 
 ## Dashboard navigation
 
-Click a table row (or focus it and press Enter/Space) to open its centered details dialog. Edit details and product stock adjustment are available inside the dialog; tables have no separate Actions/View column. Customer dialogs automatically load account details, order history and medicine requests.
+Click a table row (or focus it and press Enter/Space) to open its centered details dialog. Double-click an editable field (or focus it and press Enter/F2) to edit in place. Save applies pending changes; Cancel discards them. Success toasts appear at the top right. Tables have no separate Actions/View column. Customer dialogs automatically load account details, order history and medicine requests.
 
-Products is one filterable list: manufacturer, category/subcategory, stock availability and publication status combine with search. Each product dialog includes its manufacturer and category information, current stock and paginated stock history, with editing and stock adjustment available in context. Doctors contains Doctors, Clinics and Specialties. Search fields have a right-side clear control when populated; searchable form selections also expose their clear control.
+Products is one filterable list: manufacturer, category/subcategory, stock availability and publication status combine with search. Each product opens one dialog: manufacturer information, medicine details with photo, current inventory, supplier stock receipt entry, supplier purchase/receipt history, then inventory history. Product and related manufacturer/category edits and inventory updates save in a single transaction. Supplier receipts include supplier, received date, quantity and optional invoice reference; saving adds the received quantity to inventory. Historical records are read-only. Record a receipt or a balance correction per save; Cancel does not create either. Existing generic stock adjustments are not reclassified as supplier purchases. Doctors contains Doctors, Clinics and Specialties. Search fields have a right-side clear control when populated; searchable form selections also expose their clear control.
 
 ## Contract and permissions
 
@@ -71,7 +71,7 @@ Routes below have `/api` prefix. Staff/customer bearer sessions are separate, ha
 - Images: POST /media multipart; DELETE /media/:id for owned unsubmitted drafts. Staff catalog uploads use ?public=true. Private GET URLs expire after five minutes.
 - Staff auth/summary: POST /admin/login; GET /admin/me, /admin/overview, /admin/reference.
 - Data editors: GET/POST /admin/:collection, PUT /admin/:collection/:id. Strict allowed schemas are in packages/domain/src/admin.ts.
-- Operations: POST /admin/products/:id/stock; PATCH /admin/orders/:id and /admin/requests/:id; GET /admin/customers/:id/history and /admin/media/:id.
+- Operations: PUT /admin/products/:id/details (atomic product/related-record/receipt save), GET /admin/products/:id/purchases (staff-only supplier receipts), POST /admin/products/:id/stock; PATCH /admin/orders/:id and /admin/requests/:id; GET /admin/customers/:id/history and /admin/media/:id.
 
 Admin lists support search/status/page/limit. Writes require reasons and current versions; stale saves return 409. Drafts preserve the last published snapshot; archive withdraws publication. Stock updates operate separately.
 
@@ -86,3 +86,5 @@ Demo mode uses the public fixed OTP. Live mode requires ADMIN_PASSWORD, MEDIA_SE
 Before live use, configure and verify SMS, HTTPS hosting, production signing, access control, monitoring, backups/restore and pharmacy-approved catalog/policies. Live seeds contain no demo customers/orders and zero stock, but prices/MRPs still require verification. Payments, courier services and appointment booking are not implemented. Multi-instance operation needs shared OTP/rate-limit storage and an appropriate database strategy; current challenge/rate limits are in-process.
 
 Use SQLite online backup facilities, or stop the server cleanly before copying the database and WAL files together. Protect backups and media secrets and test restoration. Automated retention/deletion and disaster-recovery services are not configured. Prototype policy text is not final pharmacy policy.
+
+Detail dialogs use a shared visual style, customer summaries and order item tables. Product inventory shows a compact balance, an expandable supplier receipt form, and separate history tabs. Secondary image/source metadata is collapsed by default. Double-click editing and the shared Save/Cancel actions remain available.
