@@ -99,7 +99,7 @@ export function createApp(store:Store,options:Options){
   if(c==='inventory'&&req.query.batchId)rows=rows.filter(r=>r.batchId===req.query.batchId);
   if(c==='orders'&&req.query.prescription==='true')rows=rows.filter(r=>r.prescriptionSubmitted);
   rows=rows.filter(r=>(!search||JSON.stringify(r).toLowerCase().includes(search))&&(!status||r.status===status||r.followUp===status));
-  rows.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
+  rows.sort((a,b)=>c==='batches'?b.createdAt.localeCompare(a.createdAt):b.updatedAt.localeCompare(a.updatedAt));
   const page=Math.max(0,Number(req.query.page)||0),limit=Math.min(100,Math.max(1,Number(req.query.limit)||25));
   res.json({items:rows.slice(page*limit,(page+1)*limit),total:rows.length});
  });

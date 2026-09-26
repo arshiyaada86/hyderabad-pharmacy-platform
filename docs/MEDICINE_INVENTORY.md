@@ -1,8 +1,8 @@
 # Medicine Inventory
 
-Open **Medicine Inventory → Receive medicine**, or **Products → product → Receive batch**. Select the existing medicine for another purchase. Leave the selection empty only for a new medicine. New medicines are drafts: publish from Products after review. A medicine photograph is required with each receipt and is shared with the medicine record.
+Open **Products → Add product** or click a product row. Both use the same modal; an existing product can receive another batch through **Inventory → Receive stock**. Select the existing medicine for another purchase. Leave the selection empty only for a new medicine. New medicines are drafts: publish from Products after review. A medicine photograph is required with each receipt and is shared with the medicine record.
 
-The requested fields are grouped into Medicine, Inventory, Purchase, Pricing and Other tabs, with a photograph preview/upload in Medicine. Manufacturer appears once; internal manufacturer aliases, registered names, image metadata and source fields are omitted from the medicine form. Quantities use the chosen sale unit (for example, one strip); no automatic pack-to-tablet conversion is performed.
+The requested fields are grouped into Medicine, Inventory (including purchase details), Pricing and Other tabs, with a photograph preview/upload in Medicine. Manufacturer appears once; internal manufacturer aliases, registered names, image metadata and source fields are omitted from the medicine form. Quantities use the chosen sale unit (for example, one strip); no automatic pack-to-tablet conversion is performed.
 
 ## Master Data
 
@@ -23,3 +23,5 @@ Pre-batch stock remains in legacy mode until a first verified batch is received.
 ## Future extensions
 
 The batch IDs, barcode field, movement ledger, supplier snapshots and price snapshots support later POS, scanner input, return approval workflows, expiry notifications and inventory reporting. Scanner hardware integration and automated expiry notifications are not part of this change. Customer returns currently require an administrator's verified movement; no self-service return workflow is introduced.
+
+Inventory History is available at the bottom of the product modal, showing receipt quantities, suppliers, batches, expiry dates and invoice references. The separate Medicine Inventory navigation section has been removed.
