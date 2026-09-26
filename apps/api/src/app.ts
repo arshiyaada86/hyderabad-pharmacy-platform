@@ -205,10 +205,11 @@ export function createApp(store:Store,options:Options){
   const n=store.transaction(()=>{const n=store.put('requests',{...r,followUp:data.followUp,notes:data.notes,assignedTo:data.assignedTo});store.audit(staff.id,'follow up','requests',r.id,data.reason,r,n);return n;});res.json(n);
  });
  app.get('/api/admin/customers/:id/history',(req,res)=>{permit(req,operational);res.json({orders:store.list('orders').filter(o=>o.customerId===req.params.id),requests:store.list('requests').filter(o=>o.customerId===req.params.id)});});
+ app.get('/api/admin/invoices/:id',(req,res)=>{const staff=permit(req,['admin','catalog']);const id=req.params.id as string;const row=store.db.prepare('SELECT owner,public FROM media WHERE id=?').get(id) as any;if(!row||row.public||!store.list('purchases').some(p=>p.invoiceImageId===id))fail(404,'Invoice not found.');store.audit(staff.id,'view invoice','media',id,'Review purchase invoice');res.json(mediaView(id,row.owner));});
  app.get('/api/admin/media/:id',(req,res)=>{const staff=permit(req,operational);const row=store.db.prepare('SELECT owner FROM media WHERE id=?').get(req.params.id as string) as any;if(!row)fail(404,'Photo not found.');store.audit(staff.id,'view attachment','media',req.params.id as string,'Authorized clinical/support review');res.json(mediaView(req.params.id as string,row.owner));});
  const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:10*1024*1024,files:1}});
  app.post('/api/media',upload.single('file'),async(req,res)=>{
-  const isPublic=req.query.public==='true';const owner=isPublic?permit(req,['admin','catalog']):auth(req,'customer');if(!req.file)fail(400,'Select one image.');
+  const isPublic=req.query.public==='true',invoice=req.query.invoice==='true';if(invoice&&isPublic)fail(400,'Invoice images must remain private.');const owner=isPublic||invoice?permit(req,['admin','catalog']):auth(req,'customer');if(!req.file)fail(400,'Select one image.');
   let bytes:Buffer;try{const pipeline=sharp(req.file!.buffer,{limitInputPixels:40000000});const meta=await pipeline.metadata();if(!['jpeg','png','webp'].includes(meta.format??''))fail(400,'Use a JPEG, PNG or WebP image.');bytes=await pipeline.rotate().resize({width:2000,height:2000,fit:'inside',withoutEnlargement:true}).jpeg({quality:85}).toBuffer();}catch{fail(400,'This image could not be read.');}
   const id=randomUUID();store.db.prepare('INSERT INTO media VALUES(?,?,?,?,?,?)').run(id,owner.id,isPublic?1:0,bytes!,'image/jpeg',Date.now());res.status(201).json(mediaView(id,owner.id,isPublic));
  });

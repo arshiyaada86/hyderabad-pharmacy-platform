@@ -25,3 +25,5 @@ Pre-batch stock remains in legacy mode until a first verified batch is received.
 The batch IDs, barcode field, movement ledger, supplier snapshots and price snapshots support later POS, scanner input, return approval workflows, expiry notifications and inventory reporting. Scanner hardware integration and automated expiry notifications are not part of this change. Customer returns currently require an administrator's verified movement; no self-service return workflow is introduced.
 
 Inventory History is available at the bottom of the product modal, showing receipt quantities, suppliers, batches, expiry dates and invoice references. The separate Medicine Inventory navigation section has been removed.
+
+Purchase history appears only at the bottom of the Inventory tab as one table: purchase date, quantity, batch, expiry, unit purchase price, purchase total and invoice. Optional invoice images upload privately with each receipt and can be opened by admin/catalog staff from that table. Historical purchases without an image or cost show that information as missing, never as a fabricated zero.

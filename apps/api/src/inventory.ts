@@ -15,7 +15,7 @@ export function initializeInventory(store:Store){
 const text=z.string().trim().max(200), required=text.min(1);
 const date=z.string().refine(v=>!v||(/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v),'Use a valid date.');
 const cash=z.number().int().min(0).max(100000000);
-export const receiptSchema=z.object({productId:z.string().optional(),version:z.number().optional(),reason:required.min(3),data:z.object({image:z.string().min(1).max(1000).refine(v=>/^https:\/\/|^\/assets\/|^\/api\/media\//.test(v),'Upload a valid medicine photograph.'),brandName:required,genericName:required,strength:text,dosageForm:required,manufacturer:required,category:required,packageSize:text,unitType:required,quantityReceived:z.number().int().min(1).max(100000),batchNumber:required,manufacturingDate:date,expiryDate:date.refine(Boolean,'Expiry date is required.'),supplier:required,invoice:text,purchaseDate:date,purchasePricePaise:cash,mrpPaise:cash.positive(),pricePaise:cash,prescriptionRequired:z.boolean(),drugSchedule:required,hsnCode:text,gstRate:z.number().min(0).max(100),barcode:text,storageRequirement:required}).strict()}).strict();
+export const receiptSchema=z.object({productId:z.string().optional(),version:z.number().optional(),reason:required.min(3),data:z.object({invoiceImageId:z.string().max(100).optional(),image:z.string().min(1).max(1000).refine(v=>/^https:\/\/|^\/assets\/|^\/api\/media\//.test(v),'Upload a valid medicine photograph.'),brandName:required,genericName:required,strength:text,dosageForm:required,manufacturer:required,category:required,packageSize:text,unitType:required,quantityReceived:z.number().int().min(1).max(100000),batchNumber:required,manufacturingDate:date,expiryDate:date.refine(Boolean,'Expiry date is required.'),supplier:required,invoice:text,purchaseDate:date,purchasePricePaise:cash,mrpPaise:cash.positive(),pricePaise:cash,prescriptionRequired:z.boolean(),drugSchedule:required,hsnCode:text,gstRate:z.number().min(0).max(100),barcode:text,storageRequirement:required}).strict()}).strict();
 export function batches(store:Store,id:string){return store.list('batches').filter(b=>b.productId===id);}
 export function availableBatches(store:Store,id:string){const today=new Date().toISOString().slice(0,10);return batches(store,id).filter(b=>b.expiryDate>=today&&b.quantityAvailable>0).sort((a,b)=>a.expiryDate.localeCompare(b.expiryDate)||a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id));}
 // One displayed price per product. Reserve only batches matching the earliest-expiring offer.
@@ -33,6 +33,7 @@ export function moveBatch(store:Store,b:RecordData,delta:number,kind:string,reas
 export function receive(store:Store,raw:unknown,actor:string){
  const input=receiptSchema.parse(raw),d=input.data;
  return store.transaction(()=>{
+  if(d.invoiceImageId){const image=store.db.prepare('SELECT owner,public FROM media WHERE id=?').get(d.invoiceImageId) as any;if(!image||image.public||image.owner!==actor)bad('Attach a private invoice image uploaded by your account.');}
   if(d.pricePaise>d.mrpPaise)bad('Selling price cannot exceed MRP.');
   const today=new Date().toISOString().slice(0,10);
   if(d.expiryDate<today)bad('Do not receive expired stock.');
