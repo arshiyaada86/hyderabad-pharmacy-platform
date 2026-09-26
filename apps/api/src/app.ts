@@ -86,7 +86,7 @@ export function createApp(store:Store,options:Options){
   permit(req,allowed);
   const search=String(req.query.search??'').toLowerCase();const status=String(req.query.status??'');
   let rows=store.list(c).map(r=>serialize(c,r));
-  if(c==='batches')rows=rows.map(b=>({...b,quantityOnHand:b.quantityAvailable,quantityAvailable:b.expiryDate<new Date().toISOString().slice(0,10)?0:b.quantityAvailable}));
+  if(c==='batches')rows=rows.map(b=>({...b,image:b.image||store.get('products',b.productId)?.image||'',quantityOnHand:b.quantityAvailable,quantityAvailable:b.expiryDate<new Date().toISOString().slice(0,10)?0:b.quantityAvailable}));
   if(c==='products')rows=rows.map(p=>p.batchManaged?{...p,stock:batches(store,p.id).filter(b=>b.expiryDate>=new Date().toISOString().slice(0,10)).reduce((n,b)=>n+b.quantityAvailable,0)}:p);
   if(c==='products'){
    if(req.query.manufacturer)rows=rows.filter(r=>r.manufacturerGroup===req.query.manufacturer);

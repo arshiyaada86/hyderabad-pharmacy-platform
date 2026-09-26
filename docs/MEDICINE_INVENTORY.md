@@ -1,8 +1,8 @@
 # Medicine Inventory
 
-Open **Medicine Inventory → Receive medicine**, or **Products → product → Receive batch**. Select the existing medicine for another purchase. Leave the selection empty only for a new medicine. New medicines are drafts: add their customer photograph and publish from Products.
+Open **Medicine Inventory → Receive medicine**, or **Products → product → Receive batch**. Select the existing medicine for another purchase. Leave the selection empty only for a new medicine. New medicines are drafts: publish from Products after review. A medicine photograph is required with each receipt and is shared with the medicine record.
 
-The 25 fields follow the requested numeric order. Section headings split Pricing, Regulatory, Tax Classification and Other to preserve that order. Quantities use the chosen sale unit (for example, one strip); no automatic pack-to-tablet conversion is performed.
+The requested fields are grouped into Medicine, Inventory, Purchase, Pricing and Other tabs, with a photograph preview/upload in Medicine. Manufacturer appears once; internal manufacturer aliases, registered names, image metadata and source fields are omitted from the medicine form. Quantities use the chosen sale unit (for example, one strip); no automatic pack-to-tablet conversion is performed.
 
 ## Master Data
 
