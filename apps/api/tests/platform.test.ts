@@ -173,3 +173,33 @@ test('photograph-only updates cannot overwrite medicine fields or inventory',asy
  const result=await call('/admin/products/'+p.id+'/photo','PUT',body,admin);assert.equal(result.status,200);assert.equal(result.data.image,body.image);assert.equal(result.data.stock,p.stock);assert.equal(result.data.brandName,p.brandName);
  assert.equal((await call('/admin/products/'+p.id+'/photo','PUT',body,admin)).status,409);
 });
+
+test('household patients keep private prescriptions separate across patients and accounts',async t=>{
+ const {store,call,admin,login}=await setup(t);const [account,other]=store.list('customers');
+ const mother=await call('/admin/customers/'+account.id+'/patients','POST',{name:'Mother test',age:62,relationship:'Mother'},admin);
+ const father=await call('/admin/customers/'+account.id+'/patients','POST',{name:'Father test',age:65,relationship:'Father'},admin);assert.equal(mother.status,201);assert.equal(father.status,201);assert.notEqual(mother.data.id,father.data.id);
+ assert.equal((await call('/admin/customers/'+account.id+'/patients','POST',{name:'Invalid',age:-1,relationship:''},admin)).status,400);
+ assert.equal((await call('/admin/customers/missing/patients','POST',{name:'Invalid',age:20,relationship:''},admin)).status,404);
+ const image=await sharp({create:{width:10,height:10,channels:3,background:'#fff'}}).jpeg().toBuffer();
+ const upload=async(patientId:string,token=admin)=>{const form=new FormData();form.append('file',new Blob([new Uint8Array(image)],{type:'image/jpeg'}),'prescription.jpg');return call('/media?patientId='+patientId,'POST',form,token);};
+ const motherPhoto=await upload(mother.data.id);assert.equal(motherPhoto.status,201);assert.equal((await call('/media/'+motherPhoto.data.id)).status,403);
+ const data={title:'Consultation prescription',prescribedDate:'2026-09-01',doctorName:'Test doctor',notes:'Patient-specific prescription',photoId:motherPhoto.data.id};
+ const route=(customerId:string,patientId:string)=>'/admin/customers/'+customerId+'/patients/'+patientId+'/prescriptions';
+ assert.equal((await call(route(account.id,father.data.id),'POST',data,admin)).status,400);
+ assert.equal((await call(route(other.id,mother.data.id),'POST',data,admin)).status,404);
+ const otherOrder=store.list('orders').find(o=>o.customerId===other.id)!;
+ assert.equal((await call(route(account.id,mother.data.id),'POST',{...data,orderId:otherOrder.id},admin)).status,404);
+ const rx=await call(route(account.id,mother.data.id),'POST',data,admin);assert.equal(rx.status,201);assert.equal(rx.data.patientSnapshot.age,62);
+ assert.equal((await call(route(account.id,mother.data.id),'POST',data,admin)).status,409);
+ const fatherPhoto=await upload(father.data.id);const fatherRx=await call(route(account.id,father.data.id),'POST',{...data,photoId:fatherPhoto.data.id},admin);assert.equal(fatherRx.status,201);
+ const family=await call('/admin/customers/'+account.id+'/patients','GET',undefined,admin);assert.equal(family.data.patients.length,2);assert.equal(family.data.prescriptions.filter((p:any)=>p.patientId===mother.data.id).length,1);assert.equal(family.data.prescriptions.filter((p:any)=>p.patientId===father.data.id).length,1);
+ assert.equal((await call('/admin/customers/'+other.id+'/patients','GET',undefined,admin)).data.prescriptions.length,0);
+ assert.equal((await call(route(account.id,mother.data.id)+'/'+rx.data.id+'/photo','GET',undefined,admin)).status,200);
+ assert.equal((await call(route(account.id,father.data.id)+'/'+rx.data.id+'/photo','GET',undefined,admin)).status,404);
+ const customer=await login(account.phone);assert.equal((await call('/admin/customers/'+account.id+'/patients','GET',undefined,customer)).status,401);assert.equal((await call('/media/'+motherPhoto.data.id,'DELETE',undefined,customer)).status,409);
+ const changed=await call('/admin/customers/'+account.id+'/patients/'+mother.data.id,'PUT',{version:mother.data.version,data:{name:'Mother corrected',age:63,relationship:'Mother'}},admin);assert.equal(changed.status,200);assert.equal(store.get('patientPrescriptions',rx.data.id)!.patientSnapshot.age,62);
+ assert.equal((await call('/admin/customers/'+account.id+'/patients/'+mother.data.id,'PUT',{version:mother.data.version,data:{name:'Stale',age:63,relationship:'Mother'}},admin)).status,409);
+ await call('/admin/staff','POST',{data:{name:'Catalog test',email:'patient-catalog@example.com',password:'Catalog-password-123',role:'catalog',active:true},reason:'Test patient permissions'},admin);
+ const catalog=(await call('/admin/login','POST',{email:'patient-catalog@example.com',password:'Catalog-password-123'})).data.token;
+ assert.equal((await call('/admin/customers/'+account.id+'/patients','GET',undefined,catalog)).status,403);assert.equal((await upload(mother.data.id,catalog)).status,403);
+});
