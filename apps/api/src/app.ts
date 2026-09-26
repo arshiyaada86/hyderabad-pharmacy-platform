@@ -158,6 +158,7 @@ export function createApp(store:Store,options:Options){
    const next=moveBatch(store,b,input.delta,input.kind,input.reason,staff.id);syncStock(store,b.productId);store.audit(staff.id,'batch '+input.kind,'batches',b.id,input.reason,b,next);return next;});res.json(result);
  });
  app.post('/api/admin/:collection',saveRecord);app.put('/api/admin/:collection/:id',saveRecord);
+ app.put('/api/admin/products/:id/photo',(req,res)=>{const staff=permit(req,['admin','catalog']);const input=z.object({image:z.string().min(1).max(1000),version:z.number(),reason:z.string().trim().min(3).max(500)}).strict().parse(req.body);validateBusiness('photo',{image:input.image});const saved=store.transaction(()=>{const old=store.get('products',req.params.id as string)??fail(404,'Product not found.');version(old,input.version);const next=store.put('products',{...old,image:input.image});store.audit(staff.id,'change photograph','products',old.id,input.reason,old,next);return next;});res.json(saved);});
  // Save the complete product dialog atomically: related records and stock either all save or none do.
  app.put('/api/admin/products/:id/details',(req,res)=>{
   const staff=permit(req,['admin','catalog']);

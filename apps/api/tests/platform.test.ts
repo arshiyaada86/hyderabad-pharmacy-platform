@@ -164,3 +164,12 @@ test('new medicines stay draft, duplicate medicine masters are blocked, and cata
  assert.equal((await call('/admin/batches/'+b.id+'/movements','POST',{version:b.version,kind:'return',delta:1,reason:'Stale movement'},admin)).status,409);
  assert.equal((await call('/admin/batches/'+b.id+'/movements','POST',{version:damaged.data.version,kind:'return',delta:1,reason:'Verified return'},admin)).data.quantityAvailable,7);
 });
+
+test('photograph-only updates cannot overwrite medicine fields or inventory',async t=>{
+ const {store,call,admin}=await setup(t);const p=store.list('products')[0];
+ const body={image:'/assets/products/new-pack.jpg',version:p.version,reason:'Replace pack photograph'};
+ assert.equal((await call('/admin/products/'+p.id+'/photo','PUT',{...body,stock:999},admin)).status,400);
+ assert.equal((await call('/admin/products/'+p.id+'/photo','PUT',{...body,brandName:'Changed'},admin)).status,400);
+ const result=await call('/admin/products/'+p.id+'/photo','PUT',body,admin);assert.equal(result.status,200);assert.equal(result.data.image,body.image);assert.equal(result.data.stock,p.stock);assert.equal(result.data.brandName,p.brandName);
+ assert.equal((await call('/admin/products/'+p.id+'/photo','PUT',body,admin)).status,409);
+});
