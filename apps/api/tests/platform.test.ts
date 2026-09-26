@@ -58,7 +58,7 @@ test('price changes force review; stock cannot go negative; invalid quantity rej
  const quote=(await call('/checkout/quote','GET',undefined,c)).data;store.put('products',{...p,pricePaise:p.pricePaise+1});
  assert.equal((await call('/orders','POST',{deliveryContribution:0,fingerprint:quote.fingerprint,idempotencyKey:'changed-price-123456'},c)).status,409);
  const current=store.get('products',p.id)!;assert.equal((await call('/admin/products/'+p.id+'/stock','POST',{version:current.version,delta:-10000,reason:'Attempt negative'},admin)).status,400);
- const changed=await call('/admin/products/'+p.id+'/stock','POST',{version:current.version,delta:5,reason:'Received delivery'},admin);assert.equal(changed.data.stock,p.stock+5);assert.equal(store.list('inventory')[0].delta,5);
+ const changed=await call('/admin/products/'+p.id+'/stock','POST',{version:current.version,delta:5,reason:'Received delivery'},admin);assert.equal(changed.status,400);assert.equal(store.get('products',p.id)!.stock,p.stock);
 });
 test('private uploads, prescription ownership and clinical approval; request follow-up stays private',async t=>{
  const {store,url,call,admin,login}=await setup(t);const c=await login(),other=await login('9000000002');
@@ -82,7 +82,7 @@ test('private uploads, prescription ownership and clinical approval; request fol
 test('all dashboard data modules validate and save; published content drives app configuration',async t=>{
  const {store,call,admin}=await setup(t);
  for(const module of modules.filter(m=>m.key!=='staff')){
-  const original=store.list(module.key)[0];const data=editable(module.key,original);
+  const original=store.list(module.key)[0];if(!original)continue;const data=editable(module.key,original);
   const result=await call('/admin/'+module.key+'/'+original.id,'PUT',{data,version:original.version,reason:'Verify '+module.title},admin);
   assert.equal(result.status,200,JSON.stringify({module:module.key,error:result.data}));
  }
@@ -110,15 +110,56 @@ test('product filters combine before pagination and stock history is scoped to t
  assert.equal(history.data.total,1);assert.equal(history.data.items[0].productId,p.id);
 });
 
-test('unified product save is atomic, receipts increase stock once, and conflicts preserve other records',async t=>{
+test('unified product master save is atomic and rejects unbatched stock overwrites',async t=>{
  const {store,call,admin}=await setup(t);const p=store.list('products')[0],m=store.list('manufacturers').find(m=>m.name===p.manufacturerGroup)!;
  const changes=[{collection:'products',id:p.id,version:p.version,data:{...editable('products',p),pricePaise:p.pricePaise-100}},{collection:'manufacturers',id:m.id,version:m.version,data:{...editable('manufacturers',m),website:'https://example.com'}}];
- const body={version:p.version,reason:'Supplier delivery received',changes,receipt:{supplier:'Test distributor',quantity:5,receivedDate:'2026-09-23',invoice:'INV-TEST-1'}};
- const bad=await call('/admin/products/'+p.id+'/details','PUT',{...body,receipt:{...body.receipt,receivedDate:'2026-02-31'}},admin);
- assert.equal(bad.status,400);assert.equal(store.get('products',p.id)!.version,p.version);assert.equal(store.get('manufacturers',m.id)!.website,m.website);assert.equal(store.list('purchases').length,0);
- const result=await call('/admin/products/'+p.id+'/details','PUT',body,admin);assert.equal(result.status,200);assert.equal(result.data.stock,p.stock+5);assert.equal((await call('/products/'+p.id)).data.price,(p.pricePaise-100)/100);
+ const body={version:p.version,reason:'Update product details',changes};
+ assert.equal((await call('/admin/products/'+p.id+'/details','PUT',{...body,stock:50},admin)).status,400);
+ assert.equal(store.get('products',p.id)!.version,p.version);
+ assert.equal((await call('/admin/products/'+p.id+'/details','PUT',body,admin)).status,200);
  assert.equal(store.get('manufacturers',m.id)!.website,'https://example.com');
- const history=(await call('/admin/products/'+p.id+'/purchases','GET',undefined,admin)).data;assert.equal(history.total,1);assert.equal(history.items[0].invoice,'INV-TEST-1');
- assert.equal((await call('/admin/products/'+p.id+'/details','PUT',body,admin)).status,409);assert.equal(store.list('purchases').length,1);assert.equal(store.get('products',p.id)!.stock,p.stock+5);
- assert.equal((await call('/admin/products/'+p.id+'/purchases')).status,401);
+ assert.equal((await call('/admin/products/'+p.id+'/details','PUT',body,admin)).status,409);
+});
+
+test('batch receipts validate master data, keep costs private, allocate FEFO and cancel exactly once',async t=>{
+ const {store,call,admin,login}=await setup(t),p=store.list('products').find(p=>!p.prescriptionRequired)!;const productCount=store.list('products').length;
+ const supplier=await call('/admin/suppliers','POST',{data:{name:'Test supplier',active:true},reason:'Configure supplier'},admin);assert.equal(supplier.status,201);
+ const receipt=(overrides:any={})=>({productId:p.id,version:store.get('products',p.id)!.version,reason:'Receive verified stock',data:{brandName:p.brandName,genericName:p.genericName,strength:p.strength,dosageForm:p.dosageForm,manufacturer:p.manufacturerGroup,category:p.category,packageSize:p.packageSize,prescriptionRequired:!!p.prescriptionRequired,unitType:'Strip',quantityReceived:5,batchNumber:'BATCH-1',manufacturingDate:'2025-01-01',expiryDate:'2098-04-30',supplier:'Test supplier',invoice:'INV-1',purchaseDate:'2025-05-01',purchasePricePaise:7200,mrpPaise:10500,pricePaise:9200,drugSchedule:'OTC/Non-Scheduled',hsnCode:'3004',gstRate:5,barcode:'123456',storageRequirement:'Room Temperature',...overrides}});
+ for(const invalid of [{supplier:'Unknown'},{pricePaise:10600},{quantityReceived:-1},{expiryDate:'2026-02-31'},{quantityAvailable:90},{gstRate:101}])assert.equal((await call('/admin/inventory/receive','POST',receipt(invalid),admin)).status,400);
+ assert.equal(store.list('batches').length,0);
+ const firstBody=receipt();const first=await call('/admin/inventory/receive','POST',firstBody,admin);assert.equal(first.status,201,JSON.stringify(first.data));assert.equal(first.data.quantityAvailable,5);
+ assert.equal((await call('/admin/inventory/receive','POST',firstBody,admin)).status,409);
+ assert.equal(store.list('legacyStock')[0].quantity,p.stock);assert.equal(store.get('products',p.id)!.stock,5);
+ const second=await call('/admin/inventory/receive','POST',receipt({batchNumber:'BATCH-2',expiryDate:'2099-09-30',quantityReceived:30,purchasePricePaise:7500,mrpPaise:11000,pricePaise:9500}),admin);assert.equal(second.status,201);assert.equal(store.list('products').length,productCount);
+ const publicProduct=(await call('/products/'+p.id)).data;assert.equal(publicProduct.price,92);assert.equal(publicProduct.stock,5);assert.equal(publicProduct.purchasePricePaise,undefined);assert.equal(publicProduct.supplier,undefined);
+ const customer=await login();assert.equal((await call('/admin/batches','GET',undefined,customer)).status,401);
+ assert.equal((await call('/cart/'+p.id,'PUT',{quantity:6},customer)).status,409);
+ await call('/cart/'+p.id,'PUT',{quantity:5},customer);const q=(await call('/checkout/quote','GET',undefined,customer)).data;
+ const order=await call('/orders','POST',{deliveryContribution:0,fingerprint:q.fingerprint,idempotencyKey:'batch-order-123456789'},customer);assert.equal(order.status,201,JSON.stringify(order.data));assert.equal(order.data.total,460);assert.equal(order.data.batchAllocations,undefined);
+ assert.equal(store.get('batches',first.data.id)!.quantityAvailable,0);assert.equal(store.get('batches',second.data.id)!.quantityAvailable,30);assert.equal((await call('/products/'+p.id)).data.price,95);
+ const raw=store.get('orders',order.data.id)!;const cancelBody={version:raw.version,status:'Cancelled',review:'Not required',eta:'',notes:'',reason:'Customer cancelled'};
+ const cancel=await call('/admin/orders/'+raw.id,'PATCH',cancelBody,admin);assert.equal(cancel.status,200);assert.equal(store.get('batches',first.data.id)!.quantityAvailable,5);
+ await call('/admin/orders/'+raw.id,'PATCH',{...cancelBody,version:cancel.data.version},admin);assert.equal(store.get('batches',first.data.id)!.quantityAvailable,5);
+ const b=store.get('batches',first.data.id)!;
+ const movement=await call('/admin/batches/'+b.id+'/movements','POST',{version:b.version,kind:'damage',delta:-2,reason:'Damaged packs'},admin);assert.equal(movement.status,200);assert.equal(movement.data.quantityAvailable,3);
+ assert.equal((await call('/admin/batches/'+b.id+'/movements','POST',{version:movement.data.version,kind:'damage',delta:-10,reason:'Invalid removal'},admin)).status,400);
+ assert.equal((await call('/admin/batches/'+b.id,'PUT',{data:{quantityAvailable:500},version:movement.data.version,reason:'Bypass attempt'},admin)).status,404);
+ store.put('batches',{...store.get('batches',b.id),expiryDate:'2000-01-01'});assert.equal((await call('/products/'+p.id)).data.price,95);
+});
+
+test('new medicines stay draft, duplicate medicine masters are blocked, and catalog staff cannot adjust stock',async t=>{
+ const {store,call,admin}=await setup(t);const p=store.list('products')[0];
+ await call('/admin/suppliers','POST',{data:{name:'Receipt supplier',active:true},reason:'Configure test supplier'},admin);
+ const data={brandName:'New medicine test',genericName:'Test salt',strength:'5 mg',dosageForm:'Tablet',manufacturer:p.manufacturerGroup,category:p.category,packageSize:'10 tablets',unitType:'Strip',quantityReceived:8,batchNumber:'NEW-1',manufacturingDate:'2025-01-01',expiryDate:'2099-01-01',supplier:'Receipt supplier',invoice:'INV-NEW',purchaseDate:'2025-02-01',purchasePricePaise:5000,mrpPaise:10000,pricePaise:8500,prescriptionRequired:true,drugSchedule:'Schedule H',hsnCode:'3004',gstRate:5.5,barcode:'NEW123',storageRequirement:'Room Temperature'};
+ const result=await call('/admin/inventory/receive','POST',{data,reason:'First receipt'},admin);assert.equal(result.status,201,JSON.stringify(result.data));assert.equal(store.get('products',result.data.productId)!.status,'draft');
+ assert.equal((await call('/products/'+result.data.productId)).status,400);
+ assert.equal((await call('/admin/inventory/receive','POST',{data:{...data,batchNumber:'NEW-2'},reason:'Duplicate master attempt'},admin)).status,409);
+ await call('/admin/staff','POST',{data:{name:'Catalog user',email:'catalog@example.com',password:'Catalog-password-123',role:'catalog',active:true},reason:'Test stock permissions'},admin);
+ const catalog=(await call('/admin/login','POST',{email:'catalog@example.com',password:'Catalog-password-123'})).data.token;
+ assert.equal((await call('/admin/batches/'+result.data.id+'/movements','POST',{version:result.data.version,kind:'adjustment',delta:2,reason:'Blocked overwrite'},catalog)).status,403);
+ const b=store.get('batches',result.data.id)!;
+ assert.equal((await call('/admin/batches/'+b.id+'/movements','POST',{version:b.version,kind:'expiry',delta:-1,reason:'Not expired'},admin)).status,400);
+ const damaged=await call('/admin/batches/'+b.id+'/movements','POST',{version:b.version,kind:'damage',delta:-2,reason:'Damaged stock'},admin);assert.equal(damaged.status,200);
+ assert.equal((await call('/admin/batches/'+b.id+'/movements','POST',{version:b.version,kind:'return',delta:1,reason:'Stale movement'},admin)).status,409);
+ assert.equal((await call('/admin/batches/'+b.id+'/movements','POST',{version:damaged.data.version,kind:'return',delta:1,reason:'Verified return'},admin)).data.quantityAvailable,7);
 });

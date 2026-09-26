@@ -88,3 +88,5 @@ Before live use, configure and verify SMS, HTTPS hosting, production signing, ac
 Use SQLite online backup facilities, or stop the server cleanly before copying the database and WAL files together. Protect backups and media secrets and test restoration. Automated retention/deletion and disaster-recovery services are not configured. Prototype policy text is not final pharmacy policy.
 
 Detail dialogs use a shared visual style, customer summaries and order item tables. Product inventory shows a compact balance, an expandable supplier receipt form, and separate history tabs. Secondary image/source metadata is collapsed by default. Double-click editing and the shared Save/Cancel actions remain available.
+
+Medicine Inventory now uses batch receipts and Master Data. See [Medicine Inventory](MEDICINE_INVENTORY.md) for stock migration, pricing and role behavior. This replaces the previous direct stock balance and unbatched receipt controls.

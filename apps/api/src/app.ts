@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import { modules, schemaFor, orderStatuses, type RecordData } from "@pharmacy/domain/admin";
 import { Store } from "./store";
+import { InventoryError,initializeInventory,masterKinds,batches,availableBatches,offer,receive,moveBatch,syncStock,reserveBatches } from "./inventory";
 import { hash, passwordHash, passwordMatches, sign, token, validSignature } from "./security";
 export type Options={demo:boolean;secret:string;origins:string[];assets:string;otpUrl?:string;otpToken?:string};
 class ApiError extends Error { constructor(public status:number,message:string){super(message);} }
@@ -16,6 +17,7 @@ const cleanStaff=(r:RecordData)=>{const {passwordHash,...rest}=r;return rest;};
 const profileSchema=z.object({name:z.string().trim().min(1).max(80),address:z.string().trim().min(1).max(200),locality:z.string().trim().min(1),landmark:z.string().trim().min(1).max(120)}).strict();
 const phoneSchema=z.string().transform(v=>v.replace(/[\s()-]/g,'').replace(/^\+91/,'')).refine(v=>/^[6-9]\d{9}$/.test(v),'Enter a valid Indian mobile number.');
 export function createApp(store:Store,options:Options){
+ initializeInventory(store);
  const app=express();
  app.disable('x-powered-by');
  app.use(helmet({crossOriginResourcePolicy:{policy:'cross-origin'}}));
@@ -47,7 +49,7 @@ export function createApp(store:Store,options:Options){
   const exp=Date.now()+5*60000;const signature=sign(options.secret,id+':'+exp);
   return {id,uri:assetUrl(id)+(row.public?'':`?expires=${exp}&signature=${signature}`),mimeType:row.mime,size:row.size};
  };
- const medicine=(p:RecordData)=>({id:p.id,brandName:p.brandName,genericName:p.genericName,manufacturer:p.manufacturer,manufacturerGroup:p.manufacturerGroup,composition:p.composition,strength:p.strength,dosageForm:p.dosageForm,packageSize:p.packageSize,image:p.image,category:p.category,price:p.pricePaise/100,mrp:p.mrpPaise/100,prescriptionRequired:!!p.prescriptionRequired,active:true,stock:store.get('products',p.id)?.stock??0,sourceUrl:p.sourceUrl,sourceCheckedAt:p.sourceCheckedAt});
+ const medicine=(p:RecordData)=>({id:p.id,brandName:p.brandName,genericName:p.genericName,manufacturer:p.manufacturer,manufacturerGroup:p.manufacturerGroup,composition:p.composition,strength:p.strength,dosageForm:p.dosageForm,packageSize:p.packageSize,image:p.image,category:p.category,price:offer(store,p).pricePaise/100,mrp:offer(store,p).mrpPaise/100,prescriptionRequired:!!p.prescriptionRequired,active:true,stock:offer(store,p).stock,sourceUrl:p.sourceUrl,sourceCheckedAt:p.sourceCheckedAt});
  const publishedProduct=(id:string)=>store.published('products').find(p=>p.id===id)??fail(400,'This product is unavailable.');
  const customerOrder=(o:RecordData)=>({id:o.id,customerId:o.customerId,date:o.date,items:o.items,total:o.totalPaise/100,deliveryContribution:o.deliveryContribution,delivery:o.delivery,status:o.status,eta:o.eta,sample:o.sample,prescriptionSubmitted:o.prescriptionSubmitted,prescription:o.prescriptionId?mediaView(o.prescriptionId,o.customerId):undefined,timeline:o.timeline});
  const own=(collection:string,id:string,customer:string)=>{const value=store.get(collection,id);if(!value||value.customerId!==customer)fail(404,'Record not found.');return value!;};
@@ -56,7 +58,7 @@ export function createApp(store:Store,options:Options){
  const validateProfile=(data:unknown)=>{const p=profileSchema.parse(data);if(!store.list('localities').some(l=>l.active&&l.name===p.locality))fail(400,'Choose a serviceable locality.');return p;};
  const quote=(customer:string)=>{
   const lines=cart(customer);if(!lines.length)fail(400,'Your cart is empty.');
-  const items=lines.map((line:any)=>{const p=publishedProduct(line.medicineId);if(!line.quantity||line.quantity>(store.get('products',p.id)?.stock??0))fail(409,`${p.brandName} does not have enough stock. Review your cart.`);return {medicine:medicine(p),quantity:line.quantity,pricePaise:p.pricePaise,mrpPaise:p.mrpPaise};});
+  const items=lines.map((line:any)=>{const p=publishedProduct(line.medicineId);if(!line.quantity||line.quantity>offer(store,p).stock)fail(409,`${p.brandName} does not have enough stock. Review your cart.`);return {medicine:medicine(p),quantity:line.quantity,pricePaise:offer(store,p).pricePaise,mrpPaise:offer(store,p).mrpPaise};});
   const fingerprint=hash(JSON.stringify(items.map((i:any)=>[i.medicine.id,i.quantity,i.pricePaise,i.mrpPaise,i.medicine.prescriptionRequired])));
   return {items,fingerprint,subtotalPaise:items.reduce((s:number,i:any)=>s+i.pricePaise*i.quantity,0)};
  };
@@ -72,18 +74,20 @@ export function createApp(store:Store,options:Options){
  app.get('/api/admin/me',(req,res)=>res.json(cleanStaff(auth(req,'staff'))));
  app.post('/api/logout',(req,res)=>{store.db.prepare('DELETE FROM sessions WHERE token=?').run(hash(req.headers.authorization?.replace(/^Bearer /,'')??''));res.json({ok:true});});
  app.get('/api/admin/overview',(req,res)=>{
-  const staff=auth(req,'staff');const orders=store.list('orders');const products=store.list('products');
+  const staff=auth(req,'staff');const orders=store.list('orders');const products=store.list('products').map(p=>p.batchManaged?{...p,stock:availableBatches(store,p.id).reduce((n,b)=>n+b.quantityAvailable,0)}:p);
   res.json({products:products.length,lowStock:products.filter(p=>p.stock<=10&&p.status!=='archived').length,orders:orders.length,openOrders:orders.filter(o=>!['Delivered','Cancelled'].includes(o.status)).length,requests:store.list('requests').filter(r=>r.followUp!=='Closed').length,customers:store.list('customers').length,doctors:store.list('doctors').length,orderValuePaise:orders.filter(o=>o.status!=='Cancelled').reduce((s,o)=>s+o.totalPaise,0),recentOrders:operational.includes(staff.role)?orders.sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6):[],recentActivity:store.list('audit').filter(a=>staff.role==='admin'||a.actor===staff.id).slice(-6).reverse(),demoMode:options.demo});
  });
  app.get('/api/admin/reference',(req,res)=>{
-  auth(req,'staff');const result:any={};for(const name of ['products','categories','localities','specialties','clinics','staff'])result[name]=store.list(name).filter(r=>r.status!=='archived'&&r.active!==false).map(r=>({id:r.id,name:r.brandName||r.name||r.title,subcategories:r.subcategories}));res.json(result);
+  auth(req,'staff');const result:any={};for(const name of ['products','categories','localities','specialties','clinics','staff',...masterKinds])result[name]=store.list(name).filter(r=>r.status!=='archived'&&r.active!==false).map(r=>({id:r.id,name:r.brandName||r.name||r.title,subcategories:r.subcategories}));res.json(result);
  });
  app.get('/api/admin/:collection',(req,res)=>{
   const c=req.params.collection as string;const module=modules.find(m=>m.key===c);
-  const allowed=module?.roles??(['orders','requests'].includes(c)?operational:c==='inventory'?['admin','catalog']:c==='audit'?['admin']:[]);
+  const allowed=module?.roles??(['orders','requests'].includes(c)?operational:['inventory','batches'].includes(c)?['admin','catalog']:c==='audit'?['admin']:[]);
   permit(req,allowed);
   const search=String(req.query.search??'').toLowerCase();const status=String(req.query.status??'');
   let rows=store.list(c).map(r=>serialize(c,r));
+  if(c==='batches')rows=rows.map(b=>({...b,quantityOnHand:b.quantityAvailable,quantityAvailable:b.expiryDate<new Date().toISOString().slice(0,10)?0:b.quantityAvailable}));
+  if(c==='products')rows=rows.map(p=>p.batchManaged?{...p,stock:batches(store,p.id).filter(b=>b.expiryDate>=new Date().toISOString().slice(0,10)).reduce((n,b)=>n+b.quantityAvailable,0)}:p);
   if(c==='products'){
    if(req.query.manufacturer)rows=rows.filter(r=>r.manufacturerGroup===req.query.manufacturer);
    if(req.query.category){const category=store.list('categories').find(r=>r.name===req.query.category);rows=rows.filter(r=>category?category.subcategories.includes(r.category):r.category===req.query.category);}
@@ -91,7 +95,8 @@ export function createApp(store:Store,options:Options){
    if(req.query.stock==='out')rows=rows.filter(r=>r.stock===0);
    if(req.query.stock==='available')rows=rows.filter(r=>r.stock>0);
   }
-  if(c==='inventory'&&req.query.productId)rows=rows.filter(r=>r.productId===req.query.productId);
+  if(['inventory','batches'].includes(c)&&req.query.productId)rows=rows.filter(r=>r.productId===req.query.productId);
+  if(c==='inventory'&&req.query.batchId)rows=rows.filter(r=>r.batchId===req.query.batchId);
   if(c==='orders'&&req.query.prescription==='true')rows=rows.filter(r=>r.prescriptionSubmitted);
   rows=rows.filter(r=>(!search||JSON.stringify(r).toLowerCase().includes(search))&&(!status||r.status===status||r.followUp===status));
   rows.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt));
@@ -105,10 +110,12 @@ export function createApp(store:Store,options:Options){
   if(c==='products'){
    if(data.mrpPaise<=0||data.pricePaise>data.mrpPaise)fail(400,'MRP must be positive and at least the selling price.');
    if(!store.list('categories').some(x=>x.subcategories.includes(data.category)))fail(400,'Choose a configured subcategory.');
+   if(!store.list('manufacturers').some(m=>m.name===data.manufacturerGroup&&m.status!=='archived'))fail(400,'Choose a configured manufacturer.');
+   if(!store.list('dosageForms').some(m=>m.name===data.dosageForm&&m.active))fail(400,'Choose a configured dosage form.');
    data.stock=old?.stock??0;
   }
   if(c==='categories'){unique('name');if(!data.subcategories.length)fail(400,'Add at least one subcategory.');}
-  if(c==='manufacturers'||c==='localities'||c==='specialties')unique('name');
+  if(masterKinds.includes(c)||c==='localities'||c==='specialties'){unique('name');if(old&&old.name!==data.name&&store.list('batches').some(b=>Object.values(b.masterIds||{}).includes(old.id)))fail(409,'This master value is used by batches. Deactivate it and create a new value to preserve history.');}
   if(c==='customers'){data.phone=phoneSchema.parse(data.phone);unique('phone');validateProfile({name:data.name,address:data.address,locality:data.locality,landmark:data.landmark});data.demo=options.demo;}
   if(c==='doctors'){
    if(!data.clinicIds.length||data.clinicIds.some((id:string)=>!store.get('clinics',id)))fail(400,'Choose at least one existing clinic.');
@@ -139,6 +146,17 @@ export function createApp(store:Store,options:Options){
   const saved=store.transaction(()=>{validateBusiness(c,data,old);const next=store.put(c,{...old,...data,id:old?.id});store.audit(staff.id,old?'update':'create',c,next.id,why,old,next);if(c==='staff'&&old)store.db.prepare('DELETE FROM sessions WHERE kind=? AND subject=?').run('staff',old.id);return next;});
   res.status(old?200:201).json(serialize(c,saved));
  };
+ app.post('/api/admin/inventory/receive',(req,res)=>{const staff=permit(req,['admin','catalog']);res.status(201).json(receive(store,req.body,staff.id));});
+ app.post('/api/admin/batches/:id/movements',(req,res)=>{
+  const staff=permit(req,['admin']);
+  const input=z.object({version:z.number(),kind:z.enum(['return','damage','expiry','adjustment']),delta:z.number().int().min(-100000).max(100000).refine(n=>n!==0),reason:z.string().trim().min(3).max(500)}).strict().parse(req.body);
+  const result=store.transaction(()=>{const b=store.get('batches',req.params.id as string)??fail(404,'Batch not found.');version(b,input.version);
+   if(['damage','expiry'].includes(input.kind)&&input.delta>0)fail(400,'Damage and expiry must remove stock.');
+   if(input.kind==='return'&&input.delta<0)fail(400,'A customer return must add stock.');
+   if(input.kind==='return'&&b.quantityAvailable+input.delta>b.quantityReceived)fail(400,'Return exceeds this batch receipt.');
+   if(input.kind==='expiry'&&b.expiryDate>=new Date().toISOString().slice(0,10))fail(400,'This batch has not expired.');
+   const next=moveBatch(store,b,input.delta,input.kind,input.reason,staff.id);syncStock(store,b.productId);store.audit(staff.id,'batch '+input.kind,'batches',b.id,input.reason,b,next);return next;});res.json(result);
+ });
  app.post('/api/admin/:collection',saveRecord);app.put('/api/admin/:collection/:id',saveRecord);
  // Save the complete product dialog atomically: related records and stock either all save or none do.
  app.put('/api/admin/products/:id/details',(req,res)=>{
@@ -146,6 +164,7 @@ export function createApp(store:Store,options:Options){
   const input=z.object({version:z.number(),reason:z.string().min(3),changes:z.array(z.object({collection:z.enum(['products','manufacturers','categories']),id:z.string(),version:z.number(),data:z.record(z.string(),z.unknown())}).strict()).max(10),stock:z.number().int().min(0).max(1000000).optional(),receipt:z.object({supplier:z.string().trim().min(1).max(200),quantity:z.number().int().min(1).max(100000),receivedDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),invoice:z.string().max(200)}).strict().optional()}).strict().parse(req.body);
   const result=store.transaction(()=>{
    const original=store.get('products',req.params.id as string)??fail(404,'Product not found.');version(original,input.version);
+   if(input.stock!==undefined||input.receipt)fail(400,'Use Medicine Inventory to receive stock or record a batch movement.');
    const keys=new Set<string>();
    const changes=input.changes.map(change=>{
     const key=change.collection+':'+change.id;if(keys.has(key))fail(400,'Duplicate record update.');keys.add(key);
@@ -157,15 +176,6 @@ export function createApp(store:Store,options:Options){
    changes.sort((a,b)=>Number(a.change.collection==='products')-Number(b.change.collection==='products'));
    for(const {change,old,data} of changes){validateBusiness(change.collection,data,old);const next=store.put(change.collection,{...old,...data});store.audit(staff.id,'update',change.collection,next.id,input.reason,old,next);}
    let product=store.get('products',original.id)!;
-   if(input.stock!==undefined&&input.stock!==product.stock){const delta=input.stock-product.stock;const before=product;product=store.put('products',{...product,stock:input.stock});store.put('inventory',{productId:product.id,productName:product.brandName,delta,balance:product.stock,reason:input.reason,actor:staff.id});store.audit(staff.id,'stock adjustment','products',product.id,input.reason,before,product);}
-   if(input.receipt){
-    if(input.stock!==undefined)fail(400,'Record a receipt or a stock correction in one save, not both.');
-    const r=input.receipt;if(Number.isNaN(Date.parse(r.receivedDate))||new Date(r.receivedDate).toISOString().slice(0,10)!==r.receivedDate)fail(400,'Enter a valid receipt date.');
-    const receipt=store.put('purchases',{...r,productId:product.id,productName:product.brandName,actor:staff.id});
-    const before=product;product=store.put('products',{...product,stock:product.stock+r.quantity});
-    store.put('inventory',{productId:product.id,productName:product.brandName,delta:r.quantity,balance:product.stock,reason:'Stock receipt from '+r.supplier,receiptId:receipt.id,actor:staff.id});
-    store.audit(staff.id,'stock receipt','products',product.id,input.reason,before,product);
-   }
    return product;
   });res.json(result);
  });
@@ -173,10 +183,7 @@ export function createApp(store:Store,options:Options){
   permit(req,['admin','catalog']);const rows=store.list('purchases').filter(r=>r.productId===req.params.id).sort((a,b)=>b.receivedDate.localeCompare(a.receivedDate)||b.createdAt.localeCompare(a.createdAt));
   const page=Math.max(0,Number(req.query.page)||0);res.json({items:rows.slice(page*10,page*10+10),total:rows.length});
  });
- app.post('/api/admin/products/:id/stock',(req,res)=>{
-  const staff=permit(req,['admin','catalog']);const {delta,reason:why,version:expected}=z.object({delta:z.number().int().min(-100000).max(100000).refine(n=>n!==0),reason:z.string().min(3),version:z.number()}).strict().parse(req.body);
-  const result=store.transaction(()=>{const p=store.get('products',req.params.id as string)??fail(404,'Product not found.');version(p,expected);if(p.stock+delta<0)fail(400,'Stock cannot be negative.');const next=store.put('products',{...p,stock:p.stock+delta});store.put('inventory',{productId:p.id,productName:p.brandName,delta,balance:next.stock,reason:why,actor:staff.id});store.audit(staff.id,'stock adjustment','products',p.id,why,p,next);return next;});res.json(result);
- });
+ app.post('/api/admin/products/:id/stock',(req,res)=>{permit(req,['admin','catalog']);fail(400,'Use a batch movement in Medicine Inventory.');});
  app.patch('/api/admin/orders/:id',(req,res)=>{
   const staff=permit(req,['admin','pharmacist']);
   const data=z.object({version:z.number(),status:z.enum(orderStatuses as [string,...string[]]),eta:z.string().max(200),notes:z.string().max(5000),review:z.enum(['Pending','Approved','Rejected','Not required']),reason:z.string().min(3)}).strict().parse(req.body);
@@ -186,7 +193,7 @@ export function createApp(store:Store,options:Options){
     const next=orderStatuses[orderStatuses.indexOf(o.status)+1];
     if(['Delivered','Cancelled'].includes(o.status)||(data.status!==next&&data.status!=='Cancelled'))fail(400,'Invalid order status transition.');
     if(data.status==='Confirmed'&&o.prescriptionSubmitted&&data.review!=='Approved')fail(400,'Approve the prescription before confirming this order.');
-    if(data.status==='Cancelled'&&o.stockReserved)for(const line of o.items){const p=store.get('products',line.medicine.id)!;const n=store.put('products',{...p,stock:p.stock+line.quantity});store.put('inventory',{productId:p.id,productName:p.brandName,delta:line.quantity,balance:n.stock,reason:'Cancelled '+o.id,actor:staff.id});}
+    if(data.status==='Cancelled'&&o.stockReserved)for(const line of o.items){const p=store.get('products',line.medicine.id)!;const allocations=o.batchAllocations?.[p.id];if(allocations){for(const a of allocations){const b=store.get('batches',a.batchId)!;moveBatch(store,b,a.quantity,'cancellation','Cancelled '+o.id,staff.id,o.id);}syncStock(store,p.id);}else if(!p.batchManaged){const n=store.put('products',{...p,stock:p.stock+line.quantity});store.put('inventory',{productId:p.id,productName:p.brandName,delta:line.quantity,balance:n.stock,reason:'Cancelled '+o.id,actor:staff.id});}else{store.put('legacyStock',{productId:p.id,quantity:line.quantity,status:'cancelled legacy order needs reconciliation',orderId:o.id});}}
    }
    const n=store.put('orders',{...o,status:data.status,eta:data.eta,notes:data.notes,review:data.review,timeline:data.status===o.status?o.timeline:[...o.timeline,{status:data.status,date:new Date().toISOString()}]});store.audit(staff.id,'fulfillment','orders',o.id,data.reason,o,n);return n;
   });res.json(result);
@@ -246,7 +253,7 @@ export function createApp(store:Store,options:Options){
  app.get('/api/me',(req,res)=>res.json(auth(req,'customer')));
  app.put('/api/me',(req,res)=>{const user=auth(req,'customer');const data=validateProfile(req.body);const n=store.transaction(()=>{const n=store.put('customers',{...user,...data});store.audit(user.id,'profile update','customers',user.id,'Customer updated profile',user,n);return n;});res.json(n);});
  app.get('/api/cart',(req,res)=>res.json(cart(auth(req,'customer').id)));
- app.put('/api/cart/:id',(req,res)=>{const user=auth(req,'customer');const {quantity:n,add}=z.object({quantity:z.number(),add:z.boolean().optional()}).strict().parse(req.body);quantity(n);const lines=cart(user.id);const existing=lines.find((x:any)=>x.medicineId===req.params.id);const total=quantity(add?(existing?.quantity??0)+n:n);if(total){publishedProduct(req.params.id as string);if(total>(store.get('products',req.params.id as string)?.stock??0))fail(409,'Not enough stock for that quantity.');}const next=lines.filter((x:any)=>x.medicineId!==req.params.id);if(total)next.push({medicineId:req.params.id,quantity:total});store.put('carts',{id:user.id,lines:next});res.json(next);});
+ app.put('/api/cart/:id',(req,res)=>{const user=auth(req,'customer');const {quantity:n,add}=z.object({quantity:z.number(),add:z.boolean().optional()}).strict().parse(req.body);quantity(n);const lines=cart(user.id);const existing=lines.find((x:any)=>x.medicineId===req.params.id);const total=quantity(add?(existing?.quantity??0)+n:n);if(total){publishedProduct(req.params.id as string);if(total>medicine(publishedProduct(req.params.id as string)).stock)fail(409,'Not enough stock for that quantity.');}const next=lines.filter((x:any)=>x.medicineId!==req.params.id);if(total)next.push({medicineId:req.params.id,quantity:total});store.put('carts',{id:user.id,lines:next});res.json(next);});
  app.get('/api/checkout/quote',(req,res)=>res.json(quote(auth(req,'customer').id)));
  app.get('/api/orders',(req,res)=>{const u=auth(req,'customer');res.json(store.list('orders').filter(o=>o.customerId===u.id).sort((a,b)=>b.date.localeCompare(a.date)).map(customerOrder));});
  app.get('/api/orders/:id',(req,res)=>res.json(customerOrder(own('orders',req.params.id as string,auth(req,'customer').id))));
@@ -258,18 +265,19 @@ export function createApp(store:Store,options:Options){
    const rx=q.items.some((i:any)=>i.medicine.prescriptionRequired);if(rx&&!data.prescriptionId)fail(400,'Upload a prescription.');if(data.prescriptionId)mediaView(data.prescriptionId,user.id);
    const delivery=validateProfile({name:user.name,address:user.address,locality:user.locality,landmark:user.landmark});
    let id:string;do{id='O'+randomInt(0,10)+randomInt(0,36**4).toString(36).toUpperCase().padStart(4,'0');}while(store.get('orders',id));
-   const date=new Date().toISOString();const order=store.put('orders',{id,internalId:randomUUID(),customerId:user.id,date,items:q.items.map(({medicine,quantity}:any)=>({medicine,quantity})),totalPaise:q.subtotalPaise+data.deliveryContribution*100,deliveryContribution:data.deliveryContribution,delivery,phone:user.phone,status:'Order Received',timeline:[{status:'Order Received',date}],prescriptionId:rx?data.prescriptionId:undefined,prescriptionSubmitted:rx,review:rx?'Pending':'Not required',eta:'',notes:'',sample:options.demo,stockReserved:true});
+   const batchAllocations:Record<string,any>={};for(const line of q.items){const p=store.get('products',line.medicine.id)!;if(p.batchManaged)batchAllocations[p.id]=reserveBatches(store,p,line.quantity,id,user.id);}
+   const date=new Date().toISOString();const order=store.put('orders',{id,batchAllocations,internalId:randomUUID(),customerId:user.id,date,items:q.items.map(({medicine,quantity}:any)=>({medicine,quantity})),totalPaise:q.subtotalPaise+data.deliveryContribution*100,deliveryContribution:data.deliveryContribution,delivery,phone:user.phone,status:'Order Received',timeline:[{status:'Order Received',date}],prescriptionId:rx?data.prescriptionId:undefined,prescriptionSubmitted:rx,review:rx?'Pending':'Not required',eta:'',notes:'',sample:options.demo,stockReserved:true});
    // Reserve stock at submission; cancellation releases once, delivery does not deduct twice.
-   for(const line of q.items){const p=store.get('products',line.medicine.id)!;const n=store.put('products',{...p,stock:p.stock-line.quantity});store.put('inventory',{productId:p.id,productName:p.brandName,delta:-line.quantity,balance:n.stock,reason:'Order '+id,actor:user.id});}
+   for(const line of q.items){const p=store.get('products',line.medicine.id)!;if(p.batchManaged)continue;const n=store.put('products',{...p,stock:p.stock-line.quantity});store.put('inventory',{productId:p.id,productName:p.brandName,delta:-line.quantity,balance:n.stock,reason:'Order '+id,actor:user.id});}
    store.put('carts',{id:user.id,lines:[]});store.db.prepare('INSERT INTO idempotency VALUES(?,?,?)').run(user.id,data.idempotencyKey,id);store.audit(user.id,'place order','orders',id,'Customer submitted order',null,order);return order;
   });res.status(201).json(customerOrder(order));
  });
- app.post('/api/orders/:id/again',(req,res)=>{const u=auth(req,'customer');const o=own('orders',req.params.id as string,u.id);const lines=cart(u.id);const review:any={orderId:o.id,available:[],unavailable:[]};for(const item of o.items){const p=store.published('products').find(p=>p.id===item.medicine.id);if(!p||(store.get('products',p.id)?.stock??0)<item.quantity){review.unavailable.push(item.medicine.brandName);continue;}quantity(item.quantity);const i=lines.findIndex((x:any)=>x.medicineId===p.id);const line={medicineId:p.id,quantity:item.quantity};if(i<0)lines.push(line);else lines[i]=line;review.available.push({...line,name:p.brandName,previousPrice:item.medicine.price,currentPrice:p.pricePaise/100});}store.put('carts',{id:u.id,lines});res.json(review);});
+ app.post('/api/orders/:id/again',(req,res)=>{const u=auth(req,'customer');const o=own('orders',req.params.id as string,u.id);const lines=cart(u.id);const review:any={orderId:o.id,available:[],unavailable:[]};for(const item of o.items){const p=store.published('products').find(p=>p.id===item.medicine.id);if(!p||medicine(p).stock<item.quantity){review.unavailable.push(item.medicine.brandName);continue;}quantity(item.quantity);const i=lines.findIndex((x:any)=>x.medicineId===p.id);const line={medicineId:p.id,quantity:item.quantity};if(i<0)lines.push(line);else lines[i]=line;review.available.push({...line,name:p.brandName,previousPrice:item.medicine.price,currentPrice:medicine(p).price});}store.put('carts',{id:u.id,lines});res.json(review);});
  app.get('/api/requests',(req,res)=>{const u=auth(req,'customer');res.json(store.list('requests').filter(r=>r.customerId===u.id).map(r=>({id:r.id,customerId:r.customerId,date:r.date,status:'Received',demo:r.demo,photo:r.photoId?mediaView(r.photoId,u.id):{id:'demo',uri:'demo://medicine',size:1,mimeType:'image/jpeg'}})));});
  app.post('/api/requests',(req,res)=>{const u=auth(req,'customer');const {photoId}=z.object({photoId:z.string()}).strict().parse(req.body);const photo=mediaView(photoId,u.id);const r=store.put('requests',{customerId:u.id,photoId,date:new Date().toISOString(),status:'Received',followUp:'New',notes:'',assignedTo:'',demo:options.demo});res.status(201).json({id:r.id,customerId:u.id,date:r.date,status:'Received',photo});});
  app.use((_req,res)=>res.status(404).json({error:'Endpoint not found.'}));
  app.use((error:any,_req:express.Request,res:express.Response,_next:express.NextFunction)=>{
-  const status=error instanceof ApiError?error.status:error instanceof z.ZodError||error instanceof multer.MulterError?400:500;
+  const status=error instanceof ApiError||error instanceof InventoryError?error.status:error instanceof z.ZodError||error instanceof multer.MulterError?400:500;
   res.status(status).json({error:error instanceof z.ZodError?error.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join('; '):status===500?'The request could not be completed.':error.message});
  });
  return app;
